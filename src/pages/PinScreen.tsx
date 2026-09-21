@@ -44,7 +44,7 @@ export default function PinScreen() {
           ))}
         </div>
         {error && (
-          <p className="mt-2 text-xs text-red-600">Galat PIN — dubara try karo</p>
+          <p className="mt-2 text-xs text-red-600">Galat PIN - dubara try karo</p>
         )}
       </div>
 
