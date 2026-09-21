@@ -53,14 +53,14 @@ export default function Dashboard({ onNavigate }: Props) {
     {
       label: "Week production pay",
       value: formatRs(weekPay),
-      sub: `${start} → ${end}`,
+      sub: `${start} to ${end}`,
       icon: CalendarCheck,
       tab: "payroll" as const,
     },
     {
       label: "Week cash out",
       value: formatRs(weekCash),
-      sub: "advances + loans − returns",
+      sub: "advances + loans - returns",
       icon: Wallet,
       tab: "cash" as const,
     },
@@ -69,8 +69,12 @@ export default function Dashboard({ onNavigate }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold">{millName}</h2>
-        <p className="text-xs text-[var(--muted)] mono">{today}</p>
+        <h2 className="text-base font-semibold">
+          {millName}
+        </h2>
+        <p className="text-xs text-[var(--muted)] mono">
+          {today}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -83,9 +87,15 @@ export default function Dashboard({ onNavigate }: Props) {
               className="rounded-2xl bg-white p-3 text-left shadow-sm active:bg-slate-50"
             >
               <Icon size={18} className="mb-2 text-[var(--primary)]" />
-              <p className="text-[11px] text-[var(--muted)]">{c.label}</p>
-              <p className="mt-0.5 text-lg font-semibold mono">{c.value}</p>
-              <p className="mt-1 text-[10px] text-[var(--muted)]">{c.sub}</p>
+              <p className="text-[11px] text-[var(--muted)]">
+                {c.label}
+              </p>
+              <p className="mt-0.5 text-lg font-semibold mono">
+                {c.value}
+              </p>
+              <p className="mt-1 text-[10px] text-[var(--muted)]">
+                {c.sub}
+              </p>
             </button>
           );
         })}
@@ -94,10 +104,10 @@ export default function Dashboard({ onNavigate }: Props) {
       <div className="rounded-2xl bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold">Quick tips</h3>
         <ul className="mt-2 space-y-1 text-xs text-[var(--muted)]">
-          <li>· Voice: “Imran hazir hai”</li>
-          <li>· Voice: “machine 3 par 2500 piece”</li>
-          <li>· Voice: “Asif ko 2000 advance”</li>
-          <li>· PIN demo: 1234</li>
+          <li>Voice: Imran hazir hai</li>
+          <li>Voice: machine 3 par 2500 piece</li>
+          <li>Voice: Asif ko 2000 advance</li>
+          <li>PIN demo: 1234</li>
         </ul>
       </div>
     </div>
