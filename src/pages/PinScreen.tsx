@@ -29,7 +29,9 @@ export default function PinScreen() {
     <div className="flex h-full flex-col items-center justify-center bg-[var(--bg)] px-6 safe-top safe-bottom">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-[var(--primary)]">TowelWorks</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">{millName}</p>
+        <p className="mt-1 text-sm text-[var(--muted)]">
+          {millName}
+        </p>
         <p className="mt-4 text-xs text-[var(--muted)]">Floor PIN</p>
         <div className="mt-2 flex justify-center gap-2">
           {[0, 1, 2, 3].map((i) => (
