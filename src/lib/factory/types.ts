@@ -1,5 +1,11 @@
 export type WorkerRole = "tailor" | "helper";
 export type WorkerType = "permanent" | "outside";
+export type AttendanceStatus =
+  | "present"
+  | "absent"
+  | "half"
+  | "off"
+  | "unscheduled";
 
 export interface Worker {
   id: string;
@@ -9,6 +15,7 @@ export interface Worker {
   active: boolean;
   ratePer100: number;
   createdAt: string;
+  notes?: string;
 }
 
 export interface Machine {
@@ -16,11 +23,20 @@ export interface Machine {
   name: string;
 }
 
+export interface WorkSession {
+  id: string;
+  workerId: string;
+  machineId: number;
+  role: WorkerRole;
+  date: string;
+  note?: string;
+}
+
 export interface Attendance {
   id: string;
   workerId: string;
   date: string;
-  present: boolean;
+  status: AttendanceStatus;
   note?: string;
 }
 
@@ -28,6 +44,8 @@ export interface ProductionEntry {
   id: string;
   workerId: string;
   machineId: number;
+  role: WorkerRole;
+  sessionId?: string;
   date: string;
   rawPieces: number;
   roundedPieces: number;
@@ -41,7 +59,8 @@ export type CashType =
   | "loan"
   | "deduction"
   | "return"
-  | "settlement";
+  | "settlement"
+  | "payment";
 
 export interface CashEntry {
   id: string;
@@ -52,21 +71,42 @@ export interface CashEntry {
   note?: string;
 }
 
+export interface RateSnapshot {
+  id: string;
+  effectiveFrom: string;
+  tailorRate: number;
+  helperRate: number;
+  setBy: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  action: string;
+  entity: string;
+  detail: string;
+}
+
 export interface AppSettings {
   pin: string;
   millName: string;
   tailorRate: number;
   helperRate: number;
   weekStart: "saturday";
+  geminiApiKey: string;
+  appVersion: string;
 }
 
 export interface AppState {
   version: number;
   settings: AppSettings;
   workers: Worker[];
+  sessions: WorkSession[];
   attendance: Attendance[];
   production: ProductionEntry[];
   cash: CashEntry[];
+  rateHistory: RateSnapshot[];
+  audit: AuditEntry[];
   unlocked: boolean;
 }
 
@@ -81,4 +121,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tailorRate: 25,
   helperRate: 15,
   weekStart: "saturday",
+  geminiApiKey: "",
+  appVersion: "1.1.0",
 };
+
+export const APP_VERSION = "1.1.0";
