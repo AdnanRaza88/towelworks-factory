@@ -1,96 +1,62 @@
 import { useState, useRef } from "react";
 import { Mic } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { todayStr } from "@/lib/factory/calc";
-
-/** Simple Roman Urdu / Hindi voice command parser. */
-function parseCommand(text: string): string | null {
-  const t = text.toLowerCase().trim();
-  const workers = useAppStore.getState().workers;
-  const markAttendance = useAppStore.getState().markAttendance;
-  const addProduction = useAppStore.getState().addProduction;
-  const addCash = useAppStore.getState().addCash;
-
-  const hazir = t.match(/(\w+)\s+(hazir|present|haazir)/i);
-  if (hazir) {
-    const name = hazir[1];
-    const w = workers.find(
-      (x) => x.name.toLowerCase() === name.toLowerCase()
-    );
-    if (w) {
-      markAttendance(w.id, true);
-      return `${w.name} hazir marked`;
-    }
-  }
-
-  const prod = t.match(
-    /machine\s*(\d+)\s*(?:par|pe|on)?\s*(\d+)\s*(?:piece|pieces|pcs)?/i
-  );
-  if (prod) {
-    const machineId = Number(prod[1]);
-    const pieces = Number(prod[2]);
-    const active = workers.find((w) => w.active);
-    if (active && machineId >= 1 && machineId <= 11 && pieces > 0) {
-      addProduction(active.id, machineId, pieces);
-      return `M${machineId}: ${pieces} pcs -> ${active.name}`;
-    }
-  }
-
-  const cash = t.match(
-    /(\w+)\s+(?:ko|ke)\s+(\d+)\s+(advance|loan|deduction|return)/i
-  );
-  if (cash) {
-    const name = cash[1];
-    const amount = Number(cash[2]);
-    const type = cash[3].toLowerCase() as
-      | "advance"
-      | "loan"
-      | "deduction"
-      | "return";
-    const w = workers.find(
-      (x) => x.name.toLowerCase() === name.toLowerCase()
-    );
-    if (w && amount > 0) {
-      addCash(w.id, type, amount, todayStr());
-      return `${w.name}: Rs.${amount} ${type}`;
-    }
-  }
-
-  return null;
-}
+import { resolveVoiceCommand, speak } from "@/lib/voiceAgent";
 
 export default function VoiceBar() {
   const [listening, setListening] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
   const recRef = useRef<SpeechRecognition | null>(null);
+  const applyVoiceAction = useAppStore((s) => s.applyVoiceAction);
+  const geminiKey = useAppStore((s) => s.settings.geminiApiKey);
+
+  const show = (msg: string, say = true) => {
+    setFeedback(msg);
+    if (say) speak(msg);
+    setTimeout(() => setFeedback(""), 4500);
+  };
+
+  const handleText = async (text: string) => {
+    setBusy(true);
+    try {
+      const action = await resolveVoiceCommand(text, geminiKey);
+      if (!action) {
+        show(`Suna: "${text}" — samajh nahi aya. Dobara bolo.`);
+        return;
+      }
+      const result = applyVoiceAction(action);
+      show(result);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const start = () => {
     const SR =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognition }).SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognition }).webkitSpeechRecognition;
     if (!SR) {
-      setFeedback("Voice not supported on this device");
+      show("Is device pe voice support nahi", false);
       return;
     }
-    const rec: SpeechRecognition = new SR();
+    const rec = new SR();
     rec.lang = "en-IN";
     rec.interimResults = false;
-    rec.maxAlternatives = 1;
+    rec.maxAlternatives = 3;
     rec.onresult = (ev) => {
       const text = ev.results[0][0].transcript;
-      const msg = parseCommand(text);
-      setFeedback(msg ?? `Heard: ${text} - not matched`);
-      setTimeout(() => setFeedback(""), 3500);
+      void handleText(text);
     };
     rec.onerror = () => {
       setListening(false);
-      setFeedback("Mic error");
+      show("Mic error — permission check karo", false);
     };
     rec.onend = () => setListening(false);
     recRef.current = rec;
     rec.start();
     setListening(true);
-    setFeedback("Listening...");
+    setFeedback(geminiKey ? "Listening (Gemini)..." : "Listening (local)...");
   };
 
   const stop = () => {
@@ -101,16 +67,17 @@ export default function VoiceBar() {
   return (
     <div className="relative flex items-center gap-2">
       {feedback && (
-        <span className="absolute right-10 top-1/2 max-w-[140px] -translate-y-1/2 truncate rounded-lg bg-slate-800 px-2 py-1 text-[10px] text-white">
+        <span className="absolute right-12 top-1/2 z-20 max-w-[180px] -translate-y-1/2 truncate rounded-lg bg-black px-2 py-1 text-[10px] text-white border border-[var(--border-strong)]">
           {feedback}
         </span>
       )}
       <button
         onClick={listening ? stop : start}
-        className={`rounded-full p-2 ${
+        disabled={busy}
+        className={`rounded-full p-2 border ${
           listening
-            ? "bg-red-500 text-white animate-pulse"
-            : "bg-slate-100 text-[var(--primary)]"
+            ? "bg-[var(--danger)] text-white border-transparent animate-pulse"
+            : "bg-black text-white border-[var(--border-strong)]"
         }`}
         aria-label="Voice command"
       >
