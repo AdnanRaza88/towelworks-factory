@@ -38,7 +38,7 @@ export default function App() {
   }, [theme]);
 
   return (
-    <div className="flex h-full flex-col safe-top" style={{ background: "var(--bg)", color: "var(--text)" }}>
+    <div className="app-shell flex h-full flex-col safe-top" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ background: "var(--header-bg)", borderColor: "var(--border)" }}

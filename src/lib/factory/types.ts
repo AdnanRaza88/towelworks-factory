@@ -95,6 +95,7 @@ export interface AppSettings {
   weekStart: "saturday";
   geminiApiKey: string;
   appVersion: string;
+  theme: "light" | "dark";
 }
 
 export interface AppState {
@@ -122,7 +123,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   helperRate: 15,
   weekStart: "saturday",
   geminiApiKey: "",
-  appVersion: "1.1.0",
+  appVersion: "1.2.0",
+  theme: "light",
 };
 
-export const APP_VERSION = "1.1.0";
+export const APP_VERSION = "1.2.0";
