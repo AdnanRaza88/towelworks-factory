@@ -34,16 +34,29 @@ jobs:
       - name: Add Capacitor Android project
         run: npx cap add android
 
-      - name: Grant microphone permission
+      - name: Grant microphone and network permissions
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path("android/app/src/main/AndroidManifest.xml")
           text = p.read_text()
-          perm = '    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n'
-          if "RECORD_AUDIO" not in text:
-              text = text.replace("<application", perm + "    <application", 1)
+          perms = [
+              "android.permission.RECORD_AUDIO",
+              "android.permission.MODIFY_AUDIO_SETTINGS",
+              "android.permission.INTERNET",
+              "android.permission.ACCESS_NETWORK_STATE",
+          ]
+          inject = ""
+          for name in perms:
+              tag = f'    <uses-permission android:name="{name}" />\n'
+              if name not in text:
+                  inject += tag
+          if inject:
+              text = text.replace("<application", inject + "    <application", 1)
               p.write_text(text)
+              print("permissions added")
+          else:
+              print("permissions already present")
           PY
 
       - name: Sync web assets
