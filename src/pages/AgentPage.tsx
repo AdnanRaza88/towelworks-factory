@@ -6,6 +6,7 @@ import {
   speak,
   requestMicPermission,
   getSpeechRecognition,
+  type FactorySnapshot,
 } from "@/lib/voiceAgent";
 
 type Msg = {
@@ -37,13 +38,20 @@ function describeAction(a: VoiceAction): string {
 export default function AgentPage() {
   const geminiKey = useAppStore((s) => s.settings.geminiApiKey);
   const applyVoiceAction = useAppStore((s) => s.applyVoiceAction);
+  const settings = useAppStore((s) => s.settings);
+  const workers = useAppStore((s) => s.workers);
+  const attendance = useAppStore((s) => s.attendance);
+  const production = useAppStore((s) => s.production);
+  const cash = useAppStore((s) => s.cash);
+  const sessions = useAppStore((s) => s.sessions);
+
   const [messages, setMessages] = useState<Msg[]>([
     {
       id: "welcome",
       role: "system",
       text: geminiKey
-        ? "Agent ready. Mic dabao ya type karo. Factory commands pe pehle permission maangega."
-        : "Gemini API key nahi — Settings → AI Providers mein key daalo. Tab agent baat karega. Abhi text se local commands chal sakte hain.",
+        ? "Docking agent ready. Factory data loaded. Sawal poocho ya command do."
+        : "Gemini key nahi — local store se limited jawab. Full baat: More → AI Providers.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -53,8 +61,20 @@ export default function AgentPage() {
   const listRef = useRef<HTMLDivElement>(null);
   const recRef = useRef<SpeechRecognition | null>(null);
 
+  const snap: FactorySnapshot = {
+    settings,
+    workers,
+    attendance,
+    production,
+    cash,
+    sessions,
+  };
+
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    listRef.current?.scrollTo({
+      top: listRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, [messages]);
 
   useEffect(() => {
@@ -65,8 +85,8 @@ export default function AgentPage() {
           id: "welcome",
           role: "system",
           text: geminiKey
-            ? "Agent connected (Gemini). Bolo ya type karo."
-            : "API key nahi — agent baat nahi karega. Local commands (hazir / piece / advance) text se chalenge. Key: Settings → AI Providers.",
+            ? "Gemini ON · docking agent has live workers/production/cash data."
+            : "Gemini OFF · local answers only. Key: More → AI Providers.",
         },
         ...rest,
       ];
@@ -74,7 +94,10 @@ export default function AgentPage() {
   }, [geminiKey]);
 
   const push = (msg: Omit<Msg, "id">) => {
-    setMessages((m) => [...m, { ...msg, id: `${Date.now()}-${Math.random()}` }]);
+    setMessages((m) => [
+      ...m,
+      { ...msg, id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}` },
+    ]);
   };
 
   const handleUserText = async (text: string) => {
@@ -84,34 +107,39 @@ export default function AgentPage() {
     setInput("");
     setBusy(true);
     try {
-      const resolved = await resolveVoiceCommand(trimmed, geminiKey);
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "agent")
+        .slice(-8)
+        .map((m) => ({ role: m.role, text: m.text }));
+
+      const resolved = await resolveVoiceCommand(
+        trimmed,
+        geminiKey,
+        snap,
+        history
+      );
 
       if (resolved.kind === "action") {
-        const q = describeAction(resolved.action);
+        const q = resolved.reply || describeAction(resolved.action);
         push({
           role: "agent",
-          text: q + " — Confirm?",
+          text: q,
           pendingAction: resolved.action,
         });
         if (geminiKey) speak(q);
         return;
       }
 
-      if (resolved.kind === "chat") {
+      if (resolved.kind === "chat" || resolved.kind === "error") {
         push({ role: "agent", text: resolved.reply });
-        if (geminiKey) speak(resolved.reply);
+        if (geminiKey && resolved.kind === "chat") speak(resolved.reply);
         return;
       }
 
-      if (!geminiKey) {
-        push({
-          role: "agent",
-          text: "Samajh nahi aya. Gemini key daalo (AI Providers) ya clear command bolo: Imran hazir / machine 3 par 2500 piece",
-        });
-      } else {
-        push({ role: "agent", text: "Samajh nahi aya, dobara bolo." });
-        speak("Samajh nahi aya");
-      }
+      push({
+        role: "agent",
+        text: "Kuch issue — dobara try karo.",
+      });
     } finally {
       setBusy(false);
     }
@@ -121,7 +149,9 @@ export default function AgentPage() {
     const result = applyVoiceAction(action);
     setMessages((list) =>
       list.map((m) =>
-        m.id === msgId ? { ...m, pendingAction: undefined, text: result } : m
+        m.id === msgId
+          ? { ...m, pendingAction: undefined, text: result }
+          : m
       )
     );
     if (geminiKey) speak(result);
@@ -131,28 +161,35 @@ export default function AgentPage() {
     setMessages((list) =>
       list.map((m) =>
         m.id === msgId
-          ? { ...m, pendingAction: undefined, text: "Cancel — kuch change nahi" }
+          ? {
+              ...m,
+              pendingAction: undefined,
+              text: "Cancel — kuch change nahi hua",
+            }
           : m
       )
     );
   };
 
   const startListen = async () => {
-    setMicStatus("Permission check...");
+    setMicStatus("Permission...");
     const perm = await requestMicPermission();
     if (!perm.ok) {
       setMicStatus(perm.error ?? "Mic fail");
-      push({ role: "system", text: perm.error ?? "Mic fail — text box use karo" });
+      push({
+        role: "system",
+        text: perm.error ?? "Mic fail — text box use karo",
+      });
       return;
     }
     setMicStatus("Mic OK");
 
     const rec = getSpeechRecognition();
     if (!rec) {
-      setMicStatus("SpeechRecognition nahi — text type karo");
+      setMicStatus("STT nahi — type karo");
       push({
         role: "system",
-        text: "Is WebView mein voice recognition nahi. Neeche type karke bhejo — agent same kaam karega.",
+        text: "Speech-to-text is WebView mein available nahi. Type karke bhejo — agent same jawab dega.",
       });
       return;
     }
@@ -167,23 +204,22 @@ export default function AgentPage() {
       setMicStatus("Listening...");
     };
     rec.onresult = (ev) => {
-      const text = ev.results[0][0].transcript;
+      const said = ev.results[0][0].transcript;
       setListening(false);
       setMicStatus("");
-      void handleUserText(text);
+      void handleUserText(said);
     };
     rec.onerror = (ev) => {
       setListening(false);
       const err = (ev as SpeechRecognitionErrorEvent).error;
-      let tip = `Mic error: ${err}`;
+      let tip = `Mic: ${err}`;
       if (err === "not-allowed") {
-        tip = "Permission block. Phone Settings → Apps → TowelWorks → Microphone → Allow";
+        tip =
+          "Permission block. Phone Settings → Apps → TowelWorks → Microphone → Allow";
       } else if (err === "no-speech") {
-        tip = "Kuch suna nahi — dobara try ya type karo";
+        tip = "Kuch suna nahi — type karo";
       } else if (err === "network") {
-        tip = "Network speech service fail — text type karo (offline-friendly)";
-      } else if (err === "service-not-allowed") {
-        tip = "Speech service block — text box use karo";
+        tip = "Speech network service fail — text type karo";
       }
       setMicStatus(tip);
       push({ role: "system", text: tip });
@@ -198,7 +234,7 @@ export default function AgentPage() {
       rec.start();
     } catch {
       setListening(false);
-      setMicStatus("Start fail — text type karo");
+      setMicStatus("Start fail — type karo");
     }
   };
 
@@ -217,7 +253,9 @@ export default function AgentPage() {
       <div>
         <h2 className="text-base font-bold">Agent session</h2>
         <p className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>
-          {geminiKey ? "Gemini ON · talking enabled" : "Gemini OFF · key chahiye baat ke liye"}
+          {geminiKey
+            ? `Gemini ON · ${workers.filter((w) => w.active).length} workers in context`
+            : "Gemini OFF · local data answers only"}
         </p>
       </div>
 
@@ -238,15 +276,19 @@ export default function AgentPage() {
                     ? "var(--bg-elevated)"
                     : "var(--card-solid)",
               color: m.role === "user" ? "#fff" : "var(--text)",
-              marginLeft: m.role === "user" ? "20%" : 0,
-              marginRight: m.role === "user" ? 0 : "12%",
+              marginLeft: m.role === "user" ? "18%" : 0,
+              marginRight: m.role === "user" ? 0 : "10%",
               border: m.role !== "user" ? "1px solid var(--border)" : "none",
             }}
           >
             <p className="text-[9px] opacity-70 mb-0.5">
-              {m.role === "user" ? "You" : m.role === "agent" ? "Agent" : "System"}
+              {m.role === "user"
+                ? "You"
+                : m.role === "agent"
+                  ? "Agent"
+                  : "System"}
             </p>
-            <p>{m.text}</p>
+            <p style={{ whiteSpace: "pre-wrap" }}>{m.text}</p>
             {m.pendingAction && (
               <div className="mt-2 flex gap-2">
                 <button
@@ -265,6 +307,11 @@ export default function AgentPage() {
             )}
           </div>
         ))}
+        {busy && (
+          <p className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>
+            Agent soch raha hai...
+          </p>
+        )}
       </div>
 
       {micStatus && (
@@ -293,7 +340,7 @@ export default function AgentPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter") void handleUserText(input);
           }}
-          placeholder="Type ya mic..."
+          placeholder="Sawal ya command..."
           className="flex-1 rounded-xl px-3 py-2.5 text-sm font-bold"
           disabled={busy}
         />
