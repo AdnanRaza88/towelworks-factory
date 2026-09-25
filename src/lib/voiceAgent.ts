@@ -1,36 +1,39 @@
 import type { VoiceAction } from "@/store/useAppStore";
-import type { AttendanceStatus, CashType, WorkerRole, WorkerType } from "@/lib/factory/types";
+import type { CashType, WorkerRole, WorkerType } from "@/lib/factory/types";
 
-const SYSTEM = `You are TowelWorks factory voice agent. User speaks Roman Urdu or simple English.
-Return ONLY valid JSON for one action. No markdown.
+const SYSTEM_ACTION = `You are TowelWorks factory voice agent. User speaks Roman Urdu or simple English.
+If the user wants a factory action, return ONLY valid JSON for one action. No markdown.
+If the user is just chatting or asking a question (not a clear factory action), return:
+{"type":"chat","reply":"your short Roman Urdu or simple English reply"}
 
-Schema examples:
+Action schema:
 {"type":"attendance","workerName":"Imran","status":"present"}
 {"type":"production","workerName":"Imran","machineId":3,"role":"tailor","pieces":2500}
 {"type":"cash","workerName":"Asif","cashType":"advance","amount":2000}
 {"type":"add_worker","name":"Bilal","role":"helper","workerType":"outside"}
 {"type":"session","workerName":"Imran","machineId":2,"role":"tailor"}
 {"type":"query","topic":"payroll"}
+{"type":"chat","reply":"Haan bolo, main sun raha hoon"}
 
 status: present|absent|half|off
 cashType: advance|loan|deduction|return|settlement|payment
 role: tailor|helper
 workerType: permanent|outside
+Roman Urdu: hazir=present, ghaib=absent, piece=production, peshgi=advance.`;
 
-Roman Urdu: hazir=present, ghair-hazir/ghaib=absent, piece/pieces=production, advance/peshgi=advance.
-If unclear return {"type":"query","topic":"clarify"}.`;
+export type ResolvedVoice =
+  | { kind: "action"; action: VoiceAction }
+  | { kind: "chat"; reply: string }
+  | { kind: "none" };
 
 export function parseLocalVoice(text: string): VoiceAction | null {
   const t = text.toLowerCase().trim();
 
   const hazir = t.match(/(\w+)\s+(hazir|haazir|present|aaya|aya)/i);
-  if (hazir) {
-    return { type: "attendance", workerName: hazir[1], status: "present" };
-  }
-  const ghaib = t.match(/(\w+)\s+(ghaib|ghair|absent|nahi)/i);
-  if (ghaib) {
-    return { type: "attendance", workerName: ghaib[1], status: "absent" };
-  }
+  if (hazir) return { type: "attendance", workerName: hazir[1], status: "present" };
+
+  const ghaib = t.match(/(\w+)\s+(ghaib|ghair|absent|nahi\s+aya)/i);
+  if (ghaib) return { type: "attendance", workerName: ghaib[1], status: "absent" };
 
   const prod = t.match(
     /(?:machine|m)\s*(\d+)\s*(?:par|pe|on)?\s*(?:(\w+)\s+)?(\d+)\s*(?:piece|pieces|pcs)?/i
@@ -40,8 +43,11 @@ export function parseLocalVoice(text: string): VoiceAction | null {
     const maybeName = prod[2];
     const pieces = Number(prod[3]);
     if (machineId >= 1 && machineId <= 11 && pieces > 0) {
-      const role: WorkerRole | undefined =
-        /helper|cropper/.test(t) ? "helper" : /tailor|karigar/.test(t) ? "tailor" : undefined;
+      const role: WorkerRole | undefined = /helper|cropper/.test(t)
+        ? "helper"
+        : /tailor|karigar/.test(t)
+          ? "tailor"
+          : undefined;
       return {
         type: "production",
         machineId,
@@ -56,7 +62,7 @@ export function parseLocalVoice(text: string): VoiceAction | null {
     /(\w+)\s+(?:ko|ke)\s+(\d+)\s+(advance|peshgi|loan|qarz|deduction|return|wapsi|settlement)/i
   );
   if (cash) {
-    let cashType = cash[3].toLowerCase() as string;
+    let cashType = cash[3].toLowerCase();
     if (cashType === "peshgi") cashType = "advance";
     if (cashType === "qarz") cashType = "loan";
     if (cashType === "wapsi") cashType = "return";
@@ -103,8 +109,8 @@ export function parseLocalVoice(text: string): VoiceAction | null {
 export async function parseWithGemini(
   text: string,
   apiKey: string
-): Promise<VoiceAction | null> {
-  if (!apiKey) return null;
+): Promise<ResolvedVoice> {
+  if (!apiKey) return { kind: "none" };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
   try {
     const res = await fetch(url, {
@@ -114,44 +120,94 @@ export async function parseWithGemini(
         contents: [
           {
             role: "user",
-            parts: [{ text: `${SYSTEM}\n\nUser said: ${text}` }],
+            parts: [{ text: `${SYSTEM_ACTION}\n\nUser said: ${text}` }],
           },
         ],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+        generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { kind: "none" };
     const data = await res.json();
     const raw =
       data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]) as VoiceAction;
-    if (!parsed?.type) return null;
-    return parsed;
+    if (!jsonMatch) {
+      return { kind: "chat", reply: raw.slice(0, 200) || "Samajh nahi aya" };
+    }
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    if (parsed.type === "chat" && typeof parsed.reply === "string") {
+      return { kind: "chat", reply: parsed.reply };
+    }
+    if (parsed.type) {
+      return { kind: "action", action: parsed as unknown as VoiceAction };
+    }
+    return { kind: "none" };
   } catch {
-    return null;
+    return { kind: "none" };
   }
 }
 
 export async function resolveVoiceCommand(
   text: string,
   geminiKey: string
-): Promise<VoiceAction | null> {
+): Promise<ResolvedVoice> {
   const local = parseLocalVoice(text);
-  if (local) return local;
-  if (geminiKey) {
-    const ai = await parseWithGemini(text, geminiKey);
-    if (ai) return ai;
-  }
-  return null;
+  if (local) return { kind: "action", action: local };
+  if (geminiKey) return parseWithGemini(text, geminiKey);
+  return { kind: "none" };
 }
 
 export function speak(text: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = "en-IN";
-  u.rate = 0.95;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(u);
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-IN";
+    u.rate = 0.95;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function requestMicPermission(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  if (typeof navigator === "undefined") {
+    return { ok: false, error: "Browser API nahi" };
+  }
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return {
+        ok: false,
+        error: "Mic API nahi — text se type karo",
+      };
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    return { ok: true };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/NotAllowed|Permission|denied/i.test(msg)) {
+      return {
+        ok: false,
+        error: "Mic permission block — Settings → Apps → TowelWorks → Microphone ON",
+      };
+    }
+    if (/NotFound|DevicesNotFound/i.test(msg)) {
+      return { ok: false, error: "Mic device nahi mila" };
+    }
+    return { ok: false, error: `Mic: ${msg}` };
+  }
+}
+
+export function getSpeechRecognition(): SpeechRecognition | null {
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+  };
+  const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+  if (!SR) return null;
+  return new SR();
 }
