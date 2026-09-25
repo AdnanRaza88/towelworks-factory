@@ -7,7 +7,7 @@ import CashPage from "@/pages/CashPage";
 import PayrollPage from "@/pages/PayrollPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ProvidersPage from "@/pages/ProvidersPage";
-import VoiceBar from "@/components/VoiceBar";
+import AgentPage from "@/pages/AgentPage";
 import {
   LayoutDashboard,
   Users,
@@ -15,6 +15,7 @@ import {
   Wallet,
   CalendarCheck,
   Settings,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ const TABS = [
   { id: "home", label: "Home", icon: LayoutDashboard },
   { id: "workers", label: "Workers", icon: Users },
   { id: "production", label: "Prod", icon: Factory },
+  { id: "agent", label: "Agent", icon: Bot },
   { id: "cash", label: "Cash", icon: Wallet },
   { id: "payroll", label: "Pay", icon: CalendarCheck },
   { id: "settings", label: "More", icon: Settings },
@@ -38,20 +40,36 @@ export default function App() {
   }, [theme]);
 
   return (
-    <div className="app-shell flex h-full flex-col safe-top" style={{ background: "var(--bg)", color: "var(--text)" }}>
+    <div
+      className="app-shell flex h-full flex-col safe-top"
+      style={{ background: "var(--bg)", color: "var(--text)" }}
+    >
       <header
         className="flex items-center justify-between border-b px-4 py-3"
         style={{ background: "var(--header-bg)", borderColor: "var(--border)" }}
       >
         <div>
-          <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--primary)" }}>
+          <h1
+            className="text-lg font-bold tracking-tight"
+            style={{ color: "var(--primary)" }}
+          >
             TowelWorks
           </h1>
           <p className="text-xs font-bold" style={{ color: "var(--muted)" }}>
             Offline mill book
           </p>
         </div>
-        <VoiceBar />
+        <button
+          onClick={() => setTab("agent")}
+          className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+          style={{
+            background: tab === "agent" ? "var(--primary)" : "var(--card)",
+            color: tab === "agent" ? "#fff" : "var(--text)",
+            borderColor: "var(--border-strong)",
+          }}
+        >
+          Agent talk
+        </button>
       </header>
 
       <main className="flex-1 overflow-y-auto px-3 py-3">
@@ -60,6 +78,7 @@ export default function App() {
         )}
         {tab === "workers" && <WorkersPage />}
         {tab === "production" && <ProductionPage />}
+        {tab === "agent" && <AgentPage />}
         {tab === "cash" && <CashPage />}
         {tab === "payroll" && <PayrollPage />}
         {tab === "settings" && (
@@ -71,22 +90,23 @@ export default function App() {
       </main>
 
       <nav
-        className="safe-bottom flex border-t"
+        className="safe-bottom flex border-t overflow-x-auto"
         style={{ background: "var(--nav-bg)", borderColor: "var(--border)" }}
       >
         {TABS.map((t) => {
           const Icon = t.icon;
-          const active = tab === t.id || (tab === "providers" && t.id === "settings");
+          const active =
+            tab === t.id || (tab === "providers" && t.id === "settings");
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-bold transition"
+                "flex min-w-[3.2rem] flex-1 flex-col items-center gap-0.5 py-2 text-[9px] font-bold transition"
               )}
               style={{ color: active ? "var(--primary)" : "var(--muted)" }}
             >
-              <Icon size={20} strokeWidth={active ? 2.6 : 1.8} />
+              <Icon size={18} strokeWidth={active ? 2.6 : 1.8} />
               {t.label}
             </button>
           );
