@@ -1,29 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { MACHINES } from "@/lib/factory/types";
-import { roundNearest500, todayStr } from "@/lib/factory/calc";
+import { MACHINES, WorkerRole } from "@/lib/factory/types";
+import { calcAmount, roundNearest500, todayStr } from "@/lib/factory/calc";
 import { formatRs } from "@/lib/utils";
 
 export default function ProductionPage() {
   const workers = useAppStore((s) => s.workers.filter((w) => w.active));
   const production = useAppStore((s) => s.production);
   const addProduction = useAppStore((s) => s.addProduction);
+  const tailorRate = useAppStore((s) => s.settings.tailorRate);
+  const helperRate = useAppStore((s) => s.settings.helperRate);
 
   const [workerId, setWorkerId] = useState(workers[0]?.id ?? "");
   const [machineId, setMachineId] = useState(1);
+  const [role, setRole] = useState<WorkerRole>(workers[0]?.role ?? "tailor");
   const [pieces, setPieces] = useState("");
   const [note, setNote] = useState("");
 
+  useEffect(() => {
+    const w = workers.find((x) => x.id === workerId);
+    if (w) setRole(w.role);
+  }, [workerId, workers]);
+
   const raw = Number(pieces) || 0;
   const rounded = roundNearest500(raw);
-  const worker = workers.find((w) => w.id === workerId);
-  const previewAmount = worker
-    ? Math.round((rounded / 100) * worker.ratePer100)
-    : 0;
+  const rate = role === "tailor" ? tailorRate : helperRate;
+  const previewAmount = calcAmount(rounded, rate);
 
   const submit = () => {
     if (!workerId || raw <= 0) return;
-    addProduction(workerId, machineId, raw, todayStr(), note || undefined);
+    addProduction(workerId, machineId, role, raw, todayStr(), note || undefined);
     setPieces("");
     setNote("");
   };
@@ -46,6 +52,16 @@ export default function ProductionPage() {
               {w.name} ({w.role})
             </option>
           ))}
+        </select>
+
+        <label className="block text-xs text-[var(--muted)]">Role for this entry</label>
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as WorkerRole)}
+          className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
+        >
+          <option value="tailor">tailor</option>
+          <option value="helper">helper</option>
         </select>
 
         <label className="block text-xs text-[var(--muted)]">Machine</label>
@@ -76,7 +92,7 @@ export default function ProductionPage() {
         {raw > 0 && (
           <p className="text-xs text-[var(--muted)]">
             Rounded: <span className="mono font-medium">{rounded}</span> -{" "}
-            {formatRs(previewAmount)}
+            {formatRs(previewAmount)} ({role} @{rate}/100)
           </p>
         )}
 
@@ -114,7 +130,7 @@ export default function ProductionPage() {
                 </div>
                 <div className="mt-0.5 flex justify-between text-[var(--muted)]">
                   <span>
-                    M{p.machineId} - {p.rawPieces} - {p.roundedPieces}
+                    M{p.machineId} {p.role} - {p.rawPieces} - {p.roundedPieces}
                   </span>
                   <span className="font-medium text-[var(--text)]">
                     {formatRs(p.amount)}
