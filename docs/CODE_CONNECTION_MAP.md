@@ -1,13 +1,13 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 20:00 PKT
+Last updated: 2026-09-29 21:05 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ store split slice 5 backup/voice)
+Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 machine board)
 
 ## 1. Entry Points
 
 - `src/main.tsx` → `App.tsx`
-- `npm test` → calc.test.ts, cashRules.test.ts, rates.test.ts, payroll.test.ts, audit.test.ts
+- `npm test` → calc.test.ts, cashRules.test.ts, rates.test.ts, payroll.test.ts, audit.test.ts, machineBoard.test.ts
 - Capacitor Android via `capacitor.config.ts` + `.github/workflows/build-apk.yml`
 
 ## 2. File Inventory
@@ -17,82 +17,37 @@ Repo: AdnanRaza88/towelworks-factory (main @ store split slice 5 backup/voice)
 | src/main.tsx | boot | — | App | — |
 | src/App.tsx | shell/tabs + PIN gate + header lock | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persist composer | useAppStore, VoiceAction | types, seed, pin/workers/production/cashRates/backupVoice slices | all pages, App |
-| src/store/types.ts | store action types | VoiceAction, Actions, AppStore, StoreSet, StoreGet, isFourDigitPin | factory types | useAppStore, slices |
-| src/store/seed.ts | initial state + persist constants | SEED, initial, PERSIST_NAME, PERSIST_VERSION | factory types | useAppStore, backupVoiceSlice |
-| src/store/slices/pinSlice.ts | unlock/lock/setPin | createPinSlice | store types | useAppStore |
-| src/store/slices/workersSlice.ts | addWorker/updateWorker/toggleWorker/markAttendance | createWorkersSlice | store types, rates, calc | useAppStore |
-| src/store/slices/productionSlice.ts | openSession + addProduction | createProductionSlice | store types, rates, calc | useAppStore |
-| src/store/slices/cashRatesSlice.ts | addCash + updateRates | createCashRatesSlice | store types, cashRules, calc | useAppStore |
-| src/store/slices/backupVoiceSlice.ts | settings + backup + voice + audit | createBackupVoiceSlice | store types, seed, factory types, calc | useAppStore |
-| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AuditEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates, payroll, audit |
-| src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, slices, ProductionPage, PayrollPage, tests |
-| src/lib/factory/cashRules.ts | cash sign / net payable | cashSignedAmount, cashOutTotal, netPayable, isValidCashAmount, normalizeCashAmount | types | cashRatesSlice.addCash, payroll, cashRules.test |
-| src/lib/factory/rates.ts | historical + live rates | rateFor, resolveRate | types | workersSlice.addWorker, productionSlice.addProduction, rates.test |
-| src/lib/factory/payroll.ts | week payroll rows | countsAsPresent, countPresentDays, weekProductionTotals, workerPayrollRow, buildPayrollRows, totalNetPayable | types, cashRules | PayrollPage, payroll.test |
-| src/lib/factory/audit.ts | audit log walk | sortAuditNewestFirst, clampAuditIndex, prevAuditIndex, nextAuditIndex, auditAt, canGoPrev, canGoNext, formatAuditLine | types | SettingsPage, audit.test |
-| src/pages/ProductionPage.tsx | production form | default | store, types, calc, utils | App |
-| src/pages/PayrollPage.tsx | week payroll UI | default | store, calc, payroll, utils | App |
-| src/pages/PinScreen.tsx | PIN pad | default | store.unlock | App when unlocked=false |
-| src/pages/SettingsPage.tsx | settings + audit + change PIN | default | store, audit | App |
+| src/lib/factory/machineBoard.ts | floor board rows | buildMachineBoard, floorSummary, slotFor, machineTotals | types | MachineBoardPage, machineBoard.test |
+| src/pages/MachineBoardPage.tsx | floor assign UI | default | store, types, calc, utils, machineBoard | App tab floor |
+| src/store/slices/productionSlice.ts | openSession + addProduction | createProductionSlice | store types, rates, calc | useAppStore, MachineBoardPage (openSession) |
 | package.json | version 1.3.0 | — | — | matches APP_VERSION 1.3.0 |
 
 ## 3. Import / Call Graph
 
-### Store split (Phase 2, slice 5 — complete)
+### Machine board (Phase 2)
 
-- Public hook still `useAppStore` from `src/store/useAppStore.ts` — pages must not change import path.
-- VoiceAction re-exported from useAppStore for voiceAgent / AgentPage.
-- PIN actions in `createPinSlice`.
-- Worker + attendance actions in `createWorkersSlice`.
-- Session + production actions in `createProductionSlice`.
-- Cash + rate snapshot actions in `createCashRatesSlice`.
-- Settings + backup + voice + appendAudit in `createBackupVoiceSlice`.
-- Composer only: persist migrate/partialize + slice spread.
+- Pure: `buildMachineBoard(MACHINES, sessions, production, workers, date)`
+- Busy if tailor or helper assigned today or pieces > 0
+- Assign uses existing `openSession(workerId, machineId, role, date)` — clash replaces worker on same machine+role+date
+- Does not call addProduction; does not rewrite rates
 
 ### addProduction (CRITICAL)
 
 Canonical: `useAppStore.addProduction(workerId, machineId, role, rawPieces, date?, note?, sessionId?)`
-Implementation in productionSlice. applyVoiceAction still calls this arity.
-Rate on save: `resolveRate`. Frozen on ProductionEntry.ratePer100/amount.
-
-### Backup / voice
-
-Canonical: `exportBackup()` strips geminiApiKey. `importBackup(json)` keeps existing key if backup key empty. `applyVoiceAction` dispatches to markAttendance / addProduction / addCash / addWorker / openSession.
-
-### Persist
-
-- name `towelworks-v2`, version 2 — constants in seed.ts
 
 ## 4. Critical Shared Contracts
 
-- addProduction arity unchanged
-- openSession arity unchanged
-- addCash arity unchanged
-- updateRates arity unchanged
-- addWorker / markAttendance arity unchanged
+- addProduction / openSession arity unchanged
 - persist key `towelworks-v2`, store version 2
 - Pages import useAppStore from `@/store/useAppStore` only
-- VoiceAction export path stays useAppStore
-- unlock(pin) compares settings.pin; setPin(current, next); lock() not persisted
-- appendAudit prepends, cap 500
 - Never rewrite historical production amounts when rates change
 
 ## 5. Change Impact Rules
 
 - Store split complete. useAppStore remains the only public hook.
-- Never rewrite historical production amounts on rate change.
-- Changing addProduction signature requires ProductionPage + applyVoiceAction + this map.
-- Next Phase 2 item: machine board.
+- Next Phase 2 item: worker detail.
 
 ## 6. Recent Changes Log
 
-- 2026-09-29 20:00 PKT — Phase 2 store split slice 5: backupVoiceSlice (settings, backup, voice, appendAudit).
-- 2026-09-29 19:00 PKT — Phase 2 store split slice 4: cashRatesSlice (addCash, updateRates).
-- 2026-09-29 18:00 PKT — Phase 2 store split slice 3: productionSlice (openSession, addProduction).
-- 2026-09-29 17:00 PKT — Phase 2 store split slice 2: workersSlice (addWorker, updateWorker, toggleWorker, markAttendance).
-- 2026-09-29 16:05 PKT — Phase 2 store split slice 1: types.ts + seed.ts + pinSlice.
-- 2026-09-29 15:01 PKT — Phase 1 PIN wired: setPin + Settings change form + header Lock.
-- 2026-09-29 14:05 PKT — Phase 1 audit: audit.ts prev/next + Settings browser + audit.test.
-- 2026-09-29 13:00 PKT — Phase 1 payroll.ts: extract week row math.
-- 2026-09-29 12:00 PKT — Phase 1 rates.ts: extract rateFor + resolveRate.
-- 2026-09-29 11:05 PKT — Phase 1 cashRules: extract debit/credit + netPayable.
+- 2026-09-29 21:05 PKT — Phase 2 machine board: machineBoard.ts + Floor tab + openSession assign.
+- 2026-09-29 20:00 PKT — Phase 2 store split slice 5: backupVoiceSlice.

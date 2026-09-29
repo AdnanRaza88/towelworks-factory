@@ -3,6 +3,7 @@ import { useAppStore } from "@/store/useAppStore";
 import Dashboard from "@/pages/Dashboard";
 import WorkersPage from "@/pages/WorkersPage";
 import ProductionPage from "@/pages/ProductionPage";
+import MachineBoardPage from "@/pages/MachineBoardPage";
 import CashPage from "@/pages/CashPage";
 import PayrollPage from "@/pages/PayrollPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -17,11 +18,13 @@ import {
   CalendarCheck,
   Settings,
   Bot,
+  Grid3x3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "home", label: "Home", icon: LayoutDashboard },
+  { id: "floor", label: "Floor", icon: Grid3x3 },
   { id: "workers", label: "Workers", icon: Users },
   { id: "production", label: "Prod", icon: Factory },
   { id: "agent", label: "Agent", icon: Bot },
@@ -95,6 +98,7 @@ export default function App() {
         {tab === "home" && (
           <Dashboard onNavigate={(t) => setTab(t as TabId)} />
         )}
+        {tab === "floor" && <MachineBoardPage />}
         {tab === "workers" && <WorkersPage />}
         {tab === "production" && <ProductionPage />}
         {tab === "agent" && <AgentPage />}
