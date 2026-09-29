@@ -23,9 +23,12 @@ export type VoiceAction =
   | { type: "session"; workerName: string; machineId: number; role: WorkerRole }
   | { type: "query"; topic: string };
 
+const isFourDigitPin = (pin: string) => /^\d{4}$/.test(pin);
+
 interface Actions {
   unlock: (pin: string) => boolean;
   lock: () => void;
+  setPin: (current: string, next: string) => boolean;
   addWorker: (name: string, role: WorkerRole, type: WorkerType) => string | null;
   updateWorker: (id: string, patch: Partial<Worker>) => boolean;
   toggleWorker: (id: string) => void;
@@ -68,6 +71,14 @@ export const useAppStore = create<AppState & Actions>()(
         return true;
       },
       lock: () => set({ unlocked: false }),
+      setPin: (current, next) => {
+        if (current !== get().settings.pin) return false;
+        if (!isFourDigitPin(next)) return false;
+        if (next === current) return true;
+        set((s) => ({ settings: { ...s.settings, pin: next } }));
+        get().appendAudit("settings", "pin", "PIN changed");
+        return true;
+      },
       appendAudit: (action, entity, detail) => {
         const entry: AuditEntry = { id: uid(), at: new Date().toISOString(), action, entity, detail };
         set((s) => ({ audit: [entry, ...s.audit].slice(0, 500) }));
