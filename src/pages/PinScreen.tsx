@@ -26,7 +26,7 @@ export default function PinScreen() {
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-[var(--bg)] px-6 safe-top safe-bottom">
+    <div className="app-shell flex h-full flex-col items-center justify-center px-6 safe-top safe-bottom">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-[var(--primary)]">TowelWorks</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
@@ -40,7 +40,7 @@ export default function PinScreen() {
               className={`h-3 w-3 rounded-full border-2 ${
                 pin.length > i
                   ? "border-[var(--primary)] bg-[var(--primary)]"
-                  : "border-slate-300"
+                  : "border-[var(--border-strong)]"
               } ${error ? "border-red-500 bg-red-500" : ""}`}
             />
           ))}
@@ -60,7 +60,7 @@ export default function PinScreen() {
                 else if (key === "⌫") setPin((p) => p.slice(0, -1));
                 else press(key);
               }}
-              className="rounded-2xl bg-white py-4 text-xl font-semibold shadow-sm active:bg-slate-100"
+              className="skeuo-key rounded-2xl py-4 text-xl font-semibold"
             >
               {key}
             </button>

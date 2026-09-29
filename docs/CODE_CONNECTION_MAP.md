@@ -1,12 +1,12 @@
 # Code Connection Map
 
-Last updated: 2026-09-30 02:05 PKT
+Last updated: 2026-09-30 03:00 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 Excel)
+Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 UI hybrid tokens)
 
 ## 1. Entry Points
 
-- `src/main.tsx` → `App.tsx`
+- `src/main.tsx` → `App.tsx` → `src/index.css`
 - `npm test` → calc, cashRules, rates, payroll, audit, machineBoard, workerDetail, corrections, search, excel
 - Capacitor Android via `capacitor.config.ts` + `.github/workflows/build-apk.yml`
 
@@ -14,23 +14,21 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 Excel)
 
 | Path | Role | Key exports | Depends on | Depended by |
 |------|------|-------------|------------|-------------|
-| src/lib/factory/excel.ts | Excel-compatible CSV workbook | csvEscape, toCsv, filterSource, workersSheet, productionSheet, cashSheet, attendanceSheet, sessionsSheet, payrollSheet, buildWorkbook | types, payroll | backupVoiceSlice.exportWorkerSheet, PayrollPage, excel.test |
-| src/pages/PayrollPage.tsx | week payroll + Excel download | default | store, calc, payroll, excel, utils | App tab payroll |
-| src/store/slices/backupVoiceSlice.ts | settings, backup, voice, sheet | createBackupVoiceSlice | types, calc, excel, seed | useAppStore |
+| src/index.css | hybrid tokens | --skeuo-*, --neo-*, --glass-*, .skeuo-btn, .skeuo-key, .neo-card, .surface, .glass-overlay | theme data-theme | App, PinScreen, all pages via .surface |
+| src/App.tsx | shell | default | store, pages | main |
+| src/pages/PinScreen.tsx | PIN gate | default | store | App when unlocked=false |
+| src/lib/factory/excel.ts | Excel-compatible CSV workbook | csvEscape, toCsv, buildWorkbook, payrollSheet | types, payroll | backupVoiceSlice, PayrollPage, excel.test |
 | src/store/useAppStore.ts | persist composer | useAppStore, VoiceAction | types, seed, slices | all pages, App |
 | package.json | version 1.3.0 | — | — | matches APP_VERSION 1.3.0 |
 
 ## 3. Import / Call Graph
 
-### Excel (Phase 2)
+### UI hybrid tokens (Phase 2)
 
-- Pure: `buildWorkbook(src, { workerId?, weekStart?, weekEnd? })`
-- Sections: WORKERS, PRODUCTION (includes voided flagged), CASH, ATTENDANCE, SESSIONS, optional PAYROLL week
-- Payroll totals skip voided via buildPayrollRows
-- Store: `exportWorkerSheet(workerId?)` → buildWorkbook + current Sat-Fri week
-- Settings already downloads exportWorkerSheet as CSV
-- PayrollPage Excel button downloads payrollSheet only
-- No store writes; no xlsx dependency
+- Skeuo: inputs inset; `.skeuo-btn` header Find/Lock/Agent; `.skeuo-key` PinScreen pad
+- Neo: `.surface` / `.neo-card` dual shadow (pages already using .surface inherit)
+- Glass: `.glass-overlay` on App header + nav
+- No store writes; addProduction unchanged
 
 ### addProduction (CRITICAL)
 
@@ -43,13 +41,15 @@ Canonical: `useAppStore.addProduction(workerId, machineId, role, rawPieces, date
 - Pages import useAppStore from `@/store/useAppStore` only
 - Never rewrite historical production amounts when rates change
 - exportWorkerSheet signature unchanged
+- `.surface` remains valid class (now Neo card)
 
 ## 5. Change Impact Rules
 
-- Next Phase 2 item: UI hybrid tokens (Skeuo controls, Neo cards, Glass overlays/header).
+- Plan items C1–C5, Phase 1, Phase 2 complete.
 
 ## 6. Recent Changes Log
 
+- 2026-09-30 03:00 PKT — Phase 2 UI hybrid tokens: Skeuo controls, Neo cards, Glass header/nav.
 - 2026-09-30 02:05 PKT — Phase 2 Excel: excel.ts workbook + exportWorkerSheet + Payroll Excel; excel.test in npm test.
 - 2026-09-30 00:10 PKT — Phase 2 search: search.ts + SearchPage + App Find; search.test in npm test.
 - 2026-09-29 23:05 PKT — Phase 2 void/correct.

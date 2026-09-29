@@ -54,7 +54,7 @@ export default function App() {
       style={{ background: "var(--bg)", color: "var(--text)" }}
     >
       <header
-        className="flex items-center justify-between border-b px-4 py-3"
+        className="glass-overlay flex items-center justify-between border-b px-4 py-3"
         style={{ background: "var(--header-bg)", borderColor: "var(--border)" }}
       >
         <div>
@@ -72,11 +72,10 @@ export default function App() {
           <button
             type="button"
             onClick={() => setTab("search")}
-            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+            className="skeuo-btn rounded-full px-3 py-1.5 text-[10px] font-bold"
             style={{
-              background: tab === "search" ? "var(--primary)" : "var(--card)",
-              color: tab === "search" ? "#fff" : "var(--text)",
-              borderColor: "var(--border-strong)",
+              background: tab === "search" ? "var(--primary)" : undefined,
+              color: tab === "search" ? "#fff" : undefined,
             }}
           >
             Find
@@ -84,22 +83,16 @@ export default function App() {
           <button
             type="button"
             onClick={() => lock()}
-            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
-            style={{
-              background: "var(--card)",
-              color: "var(--text)",
-              borderColor: "var(--border-strong)",
-            }}
+            className="skeuo-btn rounded-full px-3 py-1.5 text-[10px] font-bold"
           >
             Lock
           </button>
           <button
             onClick={() => setTab("agent")}
-            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+            className="skeuo-btn rounded-full px-3 py-1.5 text-[10px] font-bold"
             style={{
-              background: tab === "agent" ? "var(--primary)" : "var(--card)",
-              color: tab === "agent" ? "#fff" : "var(--text)",
-              borderColor: "var(--border-strong)",
+              background: tab === "agent" ? "var(--primary)" : undefined,
+              color: tab === "agent" ? "#fff" : undefined,
             }}
           >
             Agent talk
@@ -127,7 +120,7 @@ export default function App() {
       </main>
 
       <nav
-        className="safe-bottom flex border-t overflow-x-auto"
+        className="glass-overlay safe-bottom flex border-t overflow-x-auto"
         style={{ background: "var(--nav-bg)", borderColor: "var(--border)" }}
       >
         {TABS.map((t) => {
