@@ -1,13 +1,13 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 12:00 PKT
+Last updated: 2026-09-29 13:00 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 rates.ts)
+Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 payroll.ts)
 
 ## 1. Entry Points
 
 - `src/main.tsx` → `App.tsx`
-- `npm test` → `src/lib/factory/calc.test.ts`, `src/lib/factory/cashRules.test.ts`, `src/lib/factory/rates.test.ts`
+- `npm test` → calc.test.ts, cashRules.test.ts, rates.test.ts, payroll.test.ts
 - Capacitor Android via `capacitor.config.ts` + `.github/workflows/build-apk.yml`
 
 ## 2. File Inventory
@@ -17,15 +17,17 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 rates.ts)
 | src/main.tsx | boot | — | App | — |
 | src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction | types, calc, cashRules, rates | all pages, App |
-| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates |
+| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates, payroll |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
-| src/lib/factory/cashRules.ts | cash sign / net payable | cashSignedAmount, cashOutTotal, netPayable, isValidCashAmount, normalizeCashAmount | types | store.addCash, PayrollPage, cashRules.test |
+| src/lib/factory/cashRules.ts | cash sign / net payable | cashSignedAmount, cashOutTotal, netPayable, isValidCashAmount, normalizeCashAmount | types | store.addCash, payroll, cashRules.test |
 | src/lib/factory/rates.ts | historical + live rates | rateFor, resolveRate | types | store.addProduction, store.addWorker, rates.test |
+| src/lib/factory/payroll.ts | week payroll rows | countsAsPresent, countPresentDays, weekProductionTotals, workerPayrollRow, buildPayrollRows, totalNetPayable | types, cashRules | PayrollPage, payroll.test |
 | src/lib/factory/calc.test.ts | unit tests | — | calc | npm test |
 | src/lib/factory/cashRules.test.ts | cash rule tests | — | cashRules | npm test |
 | src/lib/factory/rates.test.ts | rate resolution tests | — | rates, types | npm test |
+| src/lib/factory/payroll.test.ts | payroll week tests | — | payroll, types | npm test |
 | src/pages/ProductionPage.tsx | production form | default | store, types, calc, utils | App |
-| src/pages/PayrollPage.tsx | week payroll | default | store, calc, cashRules, utils | App |
+| src/pages/PayrollPage.tsx | week payroll UI | default | store, calc, payroll, utils | App |
 | src/pages/PinScreen.tsx | PIN pad | default | store.unlock | App when unlocked=false |
 | src/pages/Dashboard.tsx | home | default | store | App |
 | src/pages/WorkersPage.tsx | workers/attendance | default | store | App |
@@ -55,7 +57,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 
 - Model: `Attendance.status: AttendanceStatus`
 - markAttendance writes `status`
-- PayrollPage daysPresent uses status === "present" || status === "half" (C3 2026-09-29)
+- `countsAsPresent` / `countPresentDays` in payroll.ts: status === "present" || status === "half" (C3)
 
 ### PIN
 
@@ -78,9 +80,17 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 
 - Debit types (increase cashOut, reduce net): advance, loan, deduction
 - Credit types (decrease cashOut, raise net): return, settlement, payment
-- `cashSignedAmount` / `cashOutTotal` / `netPayable` used by PayrollPage
+- `cashSignedAmount` / `cashOutTotal` / `netPayable` used by payroll.ts
 - `addCash` still `(workerId, type, amount, date?, note?)`; stores Math.abs; rejects 0/NaN via isValidCashAmount
 - Callers: CashPage.submit, applyVoiceAction type cash — signature unchanged
+
+### Payroll (Phase 1 payroll.ts)
+
+- Canonical week row math: `src/lib/factory/payroll.ts`
+- PayrollPage calls `buildPayrollRows` + `totalNetPayable` only
+- Net still `prodPay - cashOutTotal(week cash)` via cashRules
+- Present days still status in {present, half}
+- Inactive workers and empty rows (no pieces, zero cashOut, zero days) omitted
 
 ### Version
 
@@ -95,6 +105,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - resolveRate lives in rates.ts; store must not keep a second copy
 - Cash debit = advance|loan|deduction; credit = return|settlement|payment
 - net = prodPay - cashOutTotal(week cash)
+- Week payroll row math lives in payroll.ts; PayrollPage must not reimplement it
 - APP_VERSION string must match package.json version (1.3.0 after C5)
 - persist key `towelworks-v2`, store version 2
 - unlock(pin) must compare settings.pin and return boolean
@@ -107,6 +118,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - Payroll present-days must use status in {present, half} not a.present.
 - Cash week net must use cashRules, not a second copy of debit/credit lists.
 - Rate lookup must use rates.ts, not a second copy of resolveRate.
+- Week payroll totals must use payroll.ts, not a second copy in PayrollPage.
 - Hybrid UI only when touching styles.
 - Changing unlock contract requires PinScreen + App gate.
 - Bumping version requires package.json + APP_VERSION + DEFAULT_SETTINGS.appVersion together.
@@ -121,3 +133,4 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - 2026-09-29 10:05 PKT — C5: APP_VERSION and DEFAULT_SETTINGS.appVersion set to 1.3.0 to match package.json.
 - 2026-09-29 11:05 PKT — Phase 1 cashRules: extract debit/credit + netPayable; PayrollPage + addCash consume it.
 - 2026-09-29 12:00 PKT — Phase 1 rates.ts: extract rateFor + resolveRate; store imports module; rates.test added.
+- 2026-09-29 13:00 PKT — Phase 1 payroll.ts: extract week row math; PayrollPage uses buildPayrollRows; payroll.test added.

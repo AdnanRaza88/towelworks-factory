@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getWeekRange, todayStr } from "@/lib/factory/calc";
-import { cashOutTotal, netPayable } from "@/lib/factory/cashRules";
+import { buildPayrollRows, totalNetPayable } from "@/lib/factory/payroll";
 import { formatRs } from "@/lib/utils";
 
 export default function PayrollPage() {
@@ -13,35 +13,12 @@ export default function PayrollPage() {
   const today = todayStr();
   const { start, end } = getWeekRange(today);
 
-  const rows = useMemo(() => {
-    return workers
-      .filter((w) => w.active)
-      .map((w) => {
-        const prod = production.filter(
-          (p) =>
-            p.workerId === w.id && p.date >= start && p.date <= end
-        );
-        const prodPay = prod.reduce((s, p) => s + p.amount, 0);
-        const pieces = prod.reduce((s, p) => s + p.roundedPieces, 0);
-        const daysPresent = attendance.filter(
-          (a) =>
-            a.workerId === w.id &&
-            a.date >= start &&
-            a.date <= end &&
-            (a.status === "present" || a.status === "half")
-        ).length;
+  const rows = useMemo(
+    () => buildPayrollRows(workers, production, cash, attendance, start, end),
+    [workers, production, cash, attendance, start, end]
+  );
 
-        const weekCash = cash.filter(
-          (c) => c.workerId === w.id && c.date >= start && c.date <= end
-        );
-        const cashOut = cashOutTotal(weekCash);
-        const net = netPayable(prodPay, cashOut);
-        return { worker: w, pieces, prodPay, cashOut, net, daysPresent };
-      })
-      .filter((r) => r.pieces > 0 || r.cashOut !== 0 || r.daysPresent > 0);
-  }, [workers, production, cash, attendance, start, end]);
-
-  const totalNet = rows.reduce((s, r) => s + r.net, 0);
+  const totalNet = totalNetPayable(rows);
 
   return (
     <div className="space-y-3">
