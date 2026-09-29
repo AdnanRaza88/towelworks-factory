@@ -1,5 +1,4 @@
 import {
-  AppState,
   AuditEntry, DEFAULT_SETTINGS, APP_VERSION,
 } from "@/lib/factory/types";
 import { uid } from "@/lib/factory/calc";
@@ -74,7 +73,7 @@ export function createBackupVoiceSlice(set: StoreSet, get: StoreGet) {
         return `${m[0].name} ${action.status} mark ho gaya`;
       }
       if (action.type === "production") {
-        let list = action.workerName ? findWorker(action.workerName) : state.workers.filter((w) => w.active);
+        const list = action.workerName ? findWorker(action.workerName) : state.workers.filter((w) => w.active);
         if (action.workerName && !list.length) return `Worker "${action.workerName}" nahi mila`;
         if (action.workerName && list.length > 1) return `Kai workers: ${list.map((x) => x.name).join(", ")}`;
         const w = list[0];
