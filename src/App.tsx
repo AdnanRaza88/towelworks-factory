@@ -9,6 +9,7 @@ import PayrollPage from "@/pages/PayrollPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ProvidersPage from "@/pages/ProvidersPage";
 import AgentPage from "@/pages/AgentPage";
+import SearchPage from "@/pages/SearchPage";
 import PinScreen from "@/pages/PinScreen";
 import {
   LayoutDashboard,
@@ -33,7 +34,7 @@ const TABS = [
   { id: "settings", label: "More", icon: Settings },
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"] | "providers";
+type TabId = (typeof TABS)[number]["id"] | "providers" | "search";
 
 export default function App() {
   const theme = useAppStore((s) => s.settings.theme ?? "light");
@@ -70,6 +71,18 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => setTab("search")}
+            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+            style={{
+              background: tab === "search" ? "var(--primary)" : "var(--card)",
+              color: tab === "search" ? "#fff" : "var(--text)",
+              borderColor: "var(--border-strong)",
+            }}
+          >
+            Find
+          </button>
+          <button
+            type="button"
             onClick={() => lock()}
             className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
             style={{
@@ -104,6 +117,7 @@ export default function App() {
         {tab === "agent" && <AgentPage />}
         {tab === "cash" && <CashPage />}
         {tab === "payroll" && <PayrollPage />}
+        {tab === "search" && <SearchPage />}
         {tab === "settings" && (
           <SettingsPage onOpenProviders={() => setTab("providers")} />
         )}
