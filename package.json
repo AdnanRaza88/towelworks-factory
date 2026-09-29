@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test src/lib/factory/calc.test.ts src/lib/factory/cashRules.test.ts src/lib/factory/rates.test.ts src/lib/factory/payroll.test.ts src/lib/factory/audit.test.ts src/lib/factory/machineBoard.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/factory/calc.test.ts src/lib/factory/cashRules.test.ts src/lib/factory/rates.test.ts src/lib/factory/payroll.test.ts src/lib/factory/audit.test.ts src/lib/factory/machineBoard.test.ts src/lib/factory/workerDetail.test.ts"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
