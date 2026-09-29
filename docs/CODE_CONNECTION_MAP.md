@@ -1,8 +1,8 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 09:00 PKT
+Last updated: 2026-09-29 10:05 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ e2de741)
+Repo: AdnanRaza88/towelworks-factory (main @ C5 version sync)
 
 ## 1. Entry Points
 
@@ -17,7 +17,7 @@ Repo: AdnanRaza88/towelworks-factory (main @ e2de741)
 | src/main.tsx | boot | — | App | — |
 | src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction, resolveRate (internal) | types, calc | all pages, App |
-| src/lib/factory/types.ts | domain types + APP_VERSION | WorkerRole, Attendance, ProductionEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, calc consumers |
+| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, calc consumers |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
 | src/lib/factory/calc.test.ts | unit tests | — | calc | npm test |
 | src/pages/ProductionPage.tsx | production form | default | store, types, calc, utils | App |
@@ -31,7 +31,7 @@ Repo: AdnanRaza88/towelworks-factory (main @ e2de741)
 | src/pages/AgentPage.tsx | voice agent UI | default | store, voiceAgent | App |
 | src/lib/voiceAgent.ts | Gemini voice | — | store VoiceAction | AgentPage |
 | src/lib/utils.ts | cn, formatRs | cn, formatRs | — | pages |
-| package.json | version 1.3.0 | — | — | C5 mismatch vs APP_VERSION 1.2.0 |
+| package.json | version 1.3.0 | — | — | matches APP_VERSION 1.3.0 (C5) |
 
 ## 3. Import / Call Graph
 
@@ -69,12 +69,17 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` — latest snapsh
 - updateRates appends snapshot, does not mutate past production (keep this)
 - Phase 1: extract resolveRate to rates.ts
 
+### Version
+
+- package.json version, APP_VERSION, DEFAULT_SETTINGS.appVersion all "1.3.0" (C5 2026-09-29)
+- Persisted settings.appVersion may still show 1.2.0 until store overwrite; constant/default is 1.3.0
+
 ## 4. Critical Shared Contracts
 
 - addProduction arity: workerId, machineId, role, rawPieces, date?, note?, sessionId?
 - Attendance.status not .present
 - RateSnapshot.effectiveFrom YYYY-MM-DD; historical ProductionEntry.ratePer100/amount frozen
-- APP_VERSION string must match package.json version after C5
+- APP_VERSION string must match package.json version (1.3.0 after C5)
 - persist key `towelworks-v2`, store version 2
 - unlock(pin) must compare settings.pin and return boolean
 
@@ -85,6 +90,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` — latest snapsh
 - Payroll present-days must use status in {present, half} not a.present.
 - Hybrid UI only when touching styles.
 - Changing unlock contract requires PinScreen + App gate.
+- Bumping version requires package.json + APP_VERSION + DEFAULT_SETTINGS.appVersion together.
 
 ## 6. Recent Changes Log
 
@@ -93,3 +99,4 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` — latest snapsh
 - 2026-09-29 07:55 PKT — C2: unlock compares settings.pin; App gates with PinScreen when unlocked=false.
 - 2026-09-29 08:00 PKT — C3: PayrollPage daysPresent uses status present or half.
 - 2026-09-29 09:00 PKT — C4: addProduction resolveRate from rateHistory by entry date (e2de741).
+- 2026-09-29 10:05 PKT — C5: APP_VERSION and DEFAULT_SETTINGS.appVersion set to 1.3.0 to match package.json.

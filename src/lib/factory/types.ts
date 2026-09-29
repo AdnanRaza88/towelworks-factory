@@ -123,8 +123,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   helperRate: 15,
   weekStart: "saturday",
   geminiApiKey: "",
-  appVersion: "1.2.0",
+  appVersion: "1.3.0",
   theme: "light",
 };
 
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.3.0";
