@@ -7,6 +7,7 @@ import {
 } from "@/lib/factory/types";
 import { roundNearest500, calcAmount, uid, todayStr } from "@/lib/factory/calc";
 import { isValidCashAmount, normalizeCashAmount } from "@/lib/factory/cashRules";
+import { rateFor, resolveRate } from "@/lib/factory/rates";
 
 const SEED: Worker[] = [
   { id: "w1", name: "Imran", role: "tailor", type: "permanent", active: true, ratePer100: 25, createdAt: "2026-01-01" },
@@ -42,23 +43,6 @@ interface Actions {
   resetDemo: () => void;
   appendAudit: (action: string, entity: string, detail: string) => void;
   applyVoiceAction: (action: VoiceAction) => string;
-}
-
-function rateFor(role: WorkerRole, s: { tailorRate: number; helperRate: number }) {
-  return role === "tailor" ? s.tailorRate : s.helperRate;
-}
-
-function resolveRate(
-  role: WorkerRole,
-  date: string,
-  history: RateSnapshot[],
-  settings: { tailorRate: number; helperRate: number }
-) {
-  const snap = history
-    .filter((h) => h.effectiveFrom <= date)
-    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
-  if (snap) return rateFor(role, snap);
-  return rateFor(role, settings);
 }
 
 const initial: AppState = {
