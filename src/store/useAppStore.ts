@@ -64,7 +64,11 @@ export const useAppStore = create<AppState & Actions>()(
   persist(
     (set, get) => ({
       ...initial,
-      unlock: () => { set({ unlocked: true }); return true; },
+      unlock: (pin) => {
+        if (pin !== get().settings.pin) return false;
+        set({ unlocked: true });
+        return true;
+      },
       lock: () => set({ unlocked: false }),
       appendAudit: (action, entity, detail) => {
         const entry: AuditEntry = { id: uid(), at: new Date().toISOString(), action, entity, detail };

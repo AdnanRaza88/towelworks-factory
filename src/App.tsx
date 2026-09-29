@@ -8,6 +8,7 @@ import PayrollPage from "@/pages/PayrollPage";
 import SettingsPage from "@/pages/SettingsPage";
 import ProvidersPage from "@/pages/ProvidersPage";
 import AgentPage from "@/pages/AgentPage";
+import PinScreen from "@/pages/PinScreen";
 import {
   LayoutDashboard,
   Users,
@@ -33,11 +34,14 @@ type TabId = (typeof TABS)[number]["id"] | "providers";
 
 export default function App() {
   const theme = useAppStore((s) => s.settings.theme ?? "light");
+  const unlocked = useAppStore((s) => s.unlocked);
   const [tab, setTab] = useState<TabId>("home");
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  if (!unlocked) return <PinScreen />;
 
   return (
     <div

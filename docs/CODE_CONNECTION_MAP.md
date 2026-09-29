@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-09-28 20:58 PKT
+Last updated: 2026-09-29 07:55 PKT
 
 Repo: AdnanRaza88/towelworks-factory (main)
 
@@ -15,14 +15,14 @@ Repo: AdnanRaza88/towelworks-factory (main)
 | Path | Role | Key exports | Depends on | Depended by |
 |------|------|-------------|------------|-------------|
 | src/main.tsx | boot | — | App | — |
-| src/App.tsx | shell/tabs | App | store, pages | main |
+| src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction | types, calc | all pages, App |
 | src/lib/factory/types.ts | domain types + APP_VERSION | WorkerRole, Attendance, ProductionEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, calc consumers |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
 | src/lib/factory/calc.test.ts | unit tests | — | calc | npm test |
 | src/pages/ProductionPage.tsx | production form | default | store, types, calc, utils | App |
 | src/pages/PayrollPage.tsx | week payroll | default | store, calc, utils | App |
-| src/pages/PinScreen.tsx | PIN pad | default | store | **not wired in App** |
+| src/pages/PinScreen.tsx | PIN pad | default | store.unlock | App when unlocked=false |
 | src/pages/Dashboard.tsx | home | default | store | App |
 | src/pages/WorkersPage.tsx | workers/attendance | default | store | App |
 | src/pages/CashPage.tsx | cash | default | store | App |
@@ -54,9 +54,11 @@ Must never change signature without updating both callers + this map.
 ### PIN
 
 - settings.pin default "1234"
-- unlock(pin) ignores pin (C2)
+- unlock(pin) compares pin === settings.pin; returns false on mismatch (C2 2026-09-29)
 - PinScreen calls unlock(next) at 4 digits
-- App does not gate on unlocked
+- App renders PinScreen when unlocked === false (C2)
+- lock() sets unlocked false; persist partialize does not save unlocked (reload starts unlocked)
+- Phase 1 still: change pin in settings, lock from header
 
 ### Rates
 
@@ -71,6 +73,7 @@ Must never change signature without updating both callers + this map.
 - RateSnapshot.effectiveFrom YYYY-MM-DD; historical ProductionEntry.ratePer100/amount frozen
 - APP_VERSION string must match package.json version after C5
 - persist key `towelworks-v2`, store version 2
+- unlock(pin) must compare settings.pin and return boolean
 
 ## 5. Change Impact Rules
 
@@ -78,8 +81,10 @@ Must never change signature without updating both callers + this map.
 - Never rewrite historical production amounts on rate change.
 - Payroll present-days must use status in {present, half} not a.present.
 - Hybrid UI only when touching styles.
+- Changing unlock contract requires PinScreen + App gate.
 
 ## 6. Recent Changes Log
 
-- 2026-09-28 20:55 PKT — initial scan of towelworks-factory main.
+- 2026-09-28 20:55 PKT — initial scan of towelworks-factory main e97d177; C1 identified as next (ProductionPage arity).
 - 2026-09-28 20:58 PKT — C1: ProductionPage addProduction(workerId, machineId, role, raw, date, note); role select + preview via settings rates.
+- 2026-09-29 07:55 PKT — C2: unlock compares settings.pin; App gates with PinScreen when unlocked=false.
