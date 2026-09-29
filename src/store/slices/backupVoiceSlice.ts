@@ -1,7 +1,8 @@
 import {
   AuditEntry, DEFAULT_SETTINGS, APP_VERSION,
 } from "@/lib/factory/types";
-import { uid } from "@/lib/factory/calc";
+import { uid, getWeekRange, todayStr } from "@/lib/factory/calc";
+import { buildWorkbook } from "@/lib/factory/excel";
 import type { StoreGet, StoreSet, VoiceAction } from "../types";
 import { initial, PERSIST_VERSION } from "../seed";
 
@@ -44,19 +45,11 @@ export function createBackupVoiceSlice(set: StoreSet, get: StoreGet) {
     },
     exportWorkerSheet: (workerId?: string) => {
       const { workers, production, cash, attendance, sessions } = get();
-      const list = workerId ? workers.filter((w) => w.id === workerId) : workers;
-      const lines = ["worker,type,role,date,kind,machine,session_role,pieces,amount,cash_type,attendance,note"];
-      for (const w of list) {
-        for (const a of attendance.filter((x) => x.workerId === w.id))
-          lines.push([w.name, w.type, w.role, a.date, "attendance", "", "", "", "", "", a.status, a.note ?? ""].join(","));
-        for (const s of sessions.filter((x) => x.workerId === w.id))
-          lines.push([w.name, w.type, w.role, s.date, "session", s.machineId, s.role, "", "", "", "", s.note ?? ""].join(","));
-        for (const p of production.filter((x) => x.workerId === w.id))
-          lines.push([w.name, w.type, w.role, p.date, "production", p.machineId, p.role, p.roundedPieces, p.amount, "", "", p.note ?? ""].join(","));
-        for (const c of cash.filter((x) => x.workerId === w.id))
-          lines.push([w.name, w.type, w.role, c.date, "cash", "", "", "", c.amount, c.type, "", c.note ?? ""].join(","));
-      }
-      return lines.join("\n");
+      const week = getWeekRange(todayStr());
+      return buildWorkbook(
+        { workers, production, cash, attendance, sessions },
+        { workerId, weekStart: week.start, weekEnd: week.end }
+      );
     },
     resetDemo: () => set({ ...initial, unlocked: true, settings: { ...DEFAULT_SETTINGS, geminiApiKey: get().settings.geminiApiKey, appVersion: APP_VERSION, theme: get().settings.theme ?? "light" } }),
     applyVoiceAction: (action: VoiceAction) => {
