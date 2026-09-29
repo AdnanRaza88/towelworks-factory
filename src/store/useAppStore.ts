@@ -47,6 +47,19 @@ function rateFor(role: WorkerRole, s: { tailorRate: number; helperRate: number }
   return role === "tailor" ? s.tailorRate : s.helperRate;
 }
 
+function resolveRate(
+  role: WorkerRole,
+  date: string,
+  history: RateSnapshot[],
+  settings: { tailorRate: number; helperRate: number }
+) {
+  const snap = history
+    .filter((h) => h.effectiveFrom <= date)
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+  if (snap) return rateFor(role, snap);
+  return rateFor(role, settings);
+}
+
 const initial: AppState = {
   version: 2,
   settings: { ...DEFAULT_SETTINGS, appVersion: APP_VERSION, theme: "light" },
@@ -111,7 +124,7 @@ export const useAppStore = create<AppState & Actions>()(
       addProduction: (workerId, machineId, role, rawPieces, date = todayStr(), note, sessionId) => {
         const worker = get().workers.find((w) => w.id === workerId);
         if (!worker) return;
-        const rate = rateFor(role, get().settings);
+        const rate = resolveRate(role, date, get().rateHistory, get().settings);
         const rounded = roundNearest500(rawPieces);
         const amount = calcAmount(rounded, rate);
         const entry: ProductionEntry = { id: uid(), workerId, machineId, role, sessionId, date, rawPieces, roundedPieces: rounded, ratePer100: rate, amount, note };
