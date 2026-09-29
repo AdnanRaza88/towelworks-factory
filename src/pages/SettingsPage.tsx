@@ -1,6 +1,16 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { APP_VERSION } from "@/lib/factory/types";
+import {
+  auditAt,
+  canGoNext,
+  canGoPrev,
+  clampAuditIndex,
+  formatAuditLine,
+  nextAuditIndex,
+  prevAuditIndex,
+  sortAuditNewestFirst,
+} from "@/lib/factory/audit";
 
 interface Props {
   onOpenProviders?: () => void;
@@ -9,6 +19,7 @@ interface Props {
 export default function SettingsPage({ onOpenProviders }: Props) {
   const settings = useAppStore((s) => s.settings);
   const rateHistory = useAppStore((s) => s.rateHistory);
+  const rawAudit = useAppStore((s) => s.audit);
   const exportBackup = useAppStore((s) => s.exportBackup);
   const importBackup = useAppStore((s) => s.importBackup);
   const exportWorkerSheet = useAppStore((s) => s.exportWorkerSheet);
@@ -22,7 +33,12 @@ export default function SettingsPage({ onOpenProviders }: Props) {
   const [helper, setHelper] = useState(String(settings.helperRate));
   const [mill, setMill] = useState(settings.millName);
   const [msg, setMsg] = useState("");
+  const [auditIndex, setAuditIndex] = useState(0);
   const theme = settings.theme ?? "light";
+
+  const audit = useMemo(() => sortAuditNewestFirst(rawAudit ?? []), [rawAudit]);
+  const idx = clampAuditIndex(auditIndex, audit.length);
+  const currentAudit = auditAt(audit, idx);
 
   const flash = (t: string) => {
     setMsg(t);
@@ -146,6 +162,50 @@ export default function SettingsPage({ onOpenProviders }: Props) {
             Last: T{rateHistory[0].tailorRate} / H{rateHistory[0].helperRate}
           </p>
         )}
+      </div>
+
+      <div className="surface rounded-2xl p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold">Audit log</p>
+          <p className="text-[10px] mono font-bold" style={{ color: "var(--muted)" }}>
+            {audit.length ? `${idx + 1} / ${audit.length}` : "0"}
+          </p>
+        </div>
+        {currentAudit ? (
+          <p className="text-[11px] font-bold leading-snug" style={{ color: "var(--text)" }}>
+            {formatAuditLine(currentAudit)}
+          </p>
+        ) : (
+          <p className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>
+            No audit entries yet
+          </p>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={!canGoPrev(idx)}
+            onClick={() => setAuditIndex(prevAuditIndex(idx, audit.length))}
+            className="flex-1 rounded-xl py-2 text-sm font-bold border"
+            style={{
+              borderColor: "var(--border-strong)",
+              opacity: canGoPrev(idx) ? 1 : 0.4,
+            }}
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            disabled={!canGoNext(idx, audit.length)}
+            onClick={() => setAuditIndex(nextAuditIndex(idx, audit.length))}
+            className="flex-1 rounded-xl py-2 text-sm font-bold border"
+            style={{
+              borderColor: "var(--border-strong)",
+              opacity: canGoNext(idx, audit.length) ? 1 : 0.4,
+            }}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">

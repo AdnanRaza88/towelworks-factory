@@ -1,13 +1,13 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 13:00 PKT
+Last updated: 2026-09-29 14:05 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 payroll.ts)
+Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 audit prev/next)
 
 ## 1. Entry Points
 
 - `src/main.tsx` → `App.tsx`
-- `npm test` → calc.test.ts, cashRules.test.ts, rates.test.ts, payroll.test.ts
+- `npm test` → calc.test.ts, cashRules.test.ts, rates.test.ts, payroll.test.ts, audit.test.ts
 - Capacitor Android via `capacitor.config.ts` + `.github/workflows/build-apk.yml`
 
 ## 2. File Inventory
@@ -17,22 +17,24 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 payroll.ts)
 | src/main.tsx | boot | — | App | — |
 | src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction | types, calc, cashRules, rates | all pages, App |
-| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates, payroll |
+| src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AuditEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates, payroll, audit |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
 | src/lib/factory/cashRules.ts | cash sign / net payable | cashSignedAmount, cashOutTotal, netPayable, isValidCashAmount, normalizeCashAmount | types | store.addCash, payroll, cashRules.test |
 | src/lib/factory/rates.ts | historical + live rates | rateFor, resolveRate | types | store.addProduction, store.addWorker, rates.test |
 | src/lib/factory/payroll.ts | week payroll rows | countsAsPresent, countPresentDays, weekProductionTotals, workerPayrollRow, buildPayrollRows, totalNetPayable | types, cashRules | PayrollPage, payroll.test |
+| src/lib/factory/audit.ts | audit log walk | sortAuditNewestFirst, clampAuditIndex, prevAuditIndex, nextAuditIndex, auditAt, canGoPrev, canGoNext, formatAuditLine | types | SettingsPage, audit.test |
 | src/lib/factory/calc.test.ts | unit tests | — | calc | npm test |
 | src/lib/factory/cashRules.test.ts | cash rule tests | — | cashRules | npm test |
 | src/lib/factory/rates.test.ts | rate resolution tests | — | rates, types | npm test |
 | src/lib/factory/payroll.test.ts | payroll week tests | — | payroll, types | npm test |
+| src/lib/factory/audit.test.ts | audit prev/next tests | — | audit, types | npm test |
 | src/pages/ProductionPage.tsx | production form | default | store, types, calc, utils | App |
 | src/pages/PayrollPage.tsx | week payroll UI | default | store, calc, payroll, utils | App |
 | src/pages/PinScreen.tsx | PIN pad | default | store.unlock | App when unlocked=false |
 | src/pages/Dashboard.tsx | home | default | store | App |
 | src/pages/WorkersPage.tsx | workers/attendance | default | store | App |
 | src/pages/CashPage.tsx | cash form | default | store, types, calc, utils | App |
-| src/pages/SettingsPage.tsx | settings | default | store | App |
+| src/pages/SettingsPage.tsx | settings + audit prev/next | default | store, audit | App |
 | src/pages/ProvidersPage.tsx | providers | default | store | App |
 | src/pages/AgentPage.tsx | voice agent UI | default | store, voiceAgent | App |
 | src/lib/voiceAgent.ts | Gemini voice | — | store VoiceAction | AgentPage |
@@ -92,6 +94,15 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - Present days still status in {present, half}
 - Inactive workers and empty rows (no pieces, zero cashOut, zero days) omitted
 
+### Audit (Phase 1 audit.ts)
+
+- Canonical walk: `src/lib/factory/audit.ts`
+- Log is newest-first after `sortAuditNewestFirst`
+- Prev = newer (index - 1); Next = older (index + 1)
+- SettingsPage uses prev/next + formatAuditLine; does not reimplement index math
+- Store `appendAudit` still prepends and caps at 500; signature unchanged
+- addProduction arity unchanged this run
+
 ### Version
 
 - package.json version, APP_VERSION, DEFAULT_SETTINGS.appVersion all "1.3.0" (C5 2026-09-29)
@@ -106,9 +117,11 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - Cash debit = advance|loan|deduction; credit = return|settlement|payment
 - net = prodPay - cashOutTotal(week cash)
 - Week payroll row math lives in payroll.ts; PayrollPage must not reimplement it
+- Audit prev/next lives in audit.ts; SettingsPage must not reimplement index math
 - APP_VERSION string must match package.json version (1.3.0 after C5)
 - persist key `towelworks-v2`, store version 2
 - unlock(pin) must compare settings.pin and return boolean
+- appendAudit(action, entity, detail) prepends AuditEntry; cap 500
 
 ## 5. Change Impact Rules
 
@@ -119,6 +132,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - Cash week net must use cashRules, not a second copy of debit/credit lists.
 - Rate lookup must use rates.ts, not a second copy of resolveRate.
 - Week payroll totals must use payroll.ts, not a second copy in PayrollPage.
+- Audit walk must use audit.ts, not a second copy of prev/next in SettingsPage.
 - Hybrid UI only when touching styles.
 - Changing unlock contract requires PinScreen + App gate.
 - Bumping version requires package.json + APP_VERSION + DEFAULT_SETTINGS.appVersion together.
@@ -134,3 +148,4 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - 2026-09-29 11:05 PKT — Phase 1 cashRules: extract debit/credit + netPayable; PayrollPage + addCash consume it.
 - 2026-09-29 12:00 PKT — Phase 1 rates.ts: extract rateFor + resolveRate; store imports module; rates.test added.
 - 2026-09-29 13:00 PKT — Phase 1 payroll.ts: extract week row math; PayrollPage uses buildPayrollRows; payroll.test added.
+- 2026-09-29 14:05 PKT — Phase 1 audit: audit.ts prev/next + Settings browser + audit.test.
