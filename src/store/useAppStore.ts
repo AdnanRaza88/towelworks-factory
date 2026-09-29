@@ -6,6 +6,7 @@ import {
   WorkerType, CashType, AttendanceStatus,
 } from "@/lib/factory/types";
 import { roundNearest500, calcAmount, uid, todayStr } from "@/lib/factory/calc";
+import { isValidCashAmount, normalizeCashAmount } from "@/lib/factory/cashRules";
 
 const SEED: Worker[] = [
   { id: "w1", name: "Imran", role: "tailor", type: "permanent", active: true, ratePer100: 25, createdAt: "2026-01-01" },
@@ -132,7 +133,8 @@ export const useAppStore = create<AppState & Actions>()(
         get().appendAudit("production", worker.name, `M${machineId} ${role} ${rawPieces}->${rounded} Rs.${amount}`);
       },
       addCash: (workerId, type, amount, date = todayStr(), note) => {
-        const entry: CashEntry = { id: uid(), workerId, date, type, amount: Math.abs(amount), note };
+        if (!isValidCashAmount(amount)) return;
+        const entry: CashEntry = { id: uid(), workerId, date, type, amount: normalizeCashAmount(amount), note };
         set((s) => ({ cash: [...s.cash, entry] }));
       },
       updateRates: (tailorRate, helperRate) => {

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getWeekRange, todayStr } from "@/lib/factory/calc";
+import { cashOutTotal, netPayable } from "@/lib/factory/cashRules";
 import { formatRs } from "@/lib/utils";
 
 export default function PayrollPage() {
@@ -30,22 +31,11 @@ export default function PayrollPage() {
             (a.status === "present" || a.status === "half")
         ).length;
 
-        const cashOut = cash
-          .filter(
-            (c) =>
-              c.workerId === w.id && c.date >= start && c.date <= end
-          )
-          .reduce((s, c) => {
-            if (
-              c.type === "advance" ||
-              c.type === "loan" ||
-              c.type === "deduction"
-            )
-              return s + c.amount;
-            return s - c.amount;
-          }, 0);
-
-        const net = prodPay - cashOut;
+        const weekCash = cash.filter(
+          (c) => c.workerId === w.id && c.date >= start && c.date <= end
+        );
+        const cashOut = cashOutTotal(weekCash);
+        const net = netPayable(prodPay, cashOut);
         return { worker: w, pieces, prodPay, cashOut, net, daysPresent };
       })
       .filter((r) => r.pieces > 0 || r.cashOut !== 0 || r.daysPresent > 0);
