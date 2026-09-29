@@ -1,8 +1,8 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 08:00 PKT
+Last updated: 2026-09-29 09:00 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main)
+Repo: AdnanRaza88/towelworks-factory (main @ e2de741)
 
 ## 1. Entry Points
 
@@ -16,7 +16,7 @@ Repo: AdnanRaza88/towelworks-factory (main)
 |------|------|-------------|------------|-------------|
 | src/main.tsx | boot | — | App | — |
 | src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
-| src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction | types, calc | all pages, App |
+| src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction, resolveRate (internal) | types, calc | all pages, App |
 | src/lib/factory/types.ts | domain types + APP_VERSION | WorkerRole, Attendance, ProductionEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, calc consumers |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
 | src/lib/factory/calc.test.ts | unit tests | — | calc | npm test |
@@ -45,6 +45,8 @@ Callers:
 
 Must never change signature without updating both callers + this map.
 
+Rate on save: `resolveRate(role, date, rateHistory, settings)` — latest snapshot with effectiveFrom <= date; fallback live settings (C4 2026-09-29). Frozen on ProductionEntry.ratePer100/amount.
+
 ### Attendance
 
 - Model: `Attendance.status: AttendanceStatus`
@@ -62,9 +64,10 @@ Must never change signature without updating both callers + this map.
 
 ### Rates
 
-- rateFor(role, settings) live rates only
-- rateHistory snapshots exist; addProduction does not resolve by date (C4)
+- rateFor(role, settings) live rates (addWorker, form preview)
+- resolveRate(role, date, history, settings) used by addProduction (C4)
 - updateRates appends snapshot, does not mutate past production (keep this)
+- Phase 1: extract resolveRate to rates.ts
 
 ## 4. Critical Shared Contracts
 
@@ -89,3 +92,4 @@ Must never change signature without updating both callers + this map.
 - 2026-09-28 20:58 PKT — C1: ProductionPage addProduction(workerId, machineId, role, raw, date, note); role select + preview via settings rates.
 - 2026-09-29 07:55 PKT — C2: unlock compares settings.pin; App gates with PinScreen when unlocked=false.
 - 2026-09-29 08:00 PKT — C3: PayrollPage daysPresent uses status present or half.
+- 2026-09-29 09:00 PKT — C4: addProduction resolveRate from rateHistory by entry date (e2de741).
