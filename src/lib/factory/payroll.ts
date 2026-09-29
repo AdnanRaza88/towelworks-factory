@@ -16,7 +16,7 @@ export function inWeek(date: string, start: string, end: string): boolean {
 }
 
 export function weekProductionTotals(
-  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces">[],
+  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces" | "voided">[],
   workerId: string,
   start: string,
   end: string
@@ -24,7 +24,7 @@ export function weekProductionTotals(
   let pieces = 0;
   let prodPay = 0;
   for (const p of production) {
-    if (p.workerId !== workerId || !inWeek(p.date, start, end)) continue;
+    if (p.voided || p.workerId !== workerId || !inWeek(p.date, start, end)) continue;
     pieces += p.roundedPieces;
     prodPay += p.amount;
   }
@@ -62,7 +62,7 @@ export interface PayrollRow {
 
 export function workerPayrollRow(
   worker: Worker,
-  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces">[],
+  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces" | "voided">[],
   cash: Pick<CashEntry, "workerId" | "date" | "type" | "amount">[],
   attendance: Pick<Attendance, "workerId" | "date" | "status">[],
   start: string,
@@ -93,7 +93,7 @@ export function isVisiblePayrollRow(
 
 export function buildPayrollRows(
   workers: Worker[],
-  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces">[],
+  production: Pick<ProductionEntry, "workerId" | "date" | "amount" | "roundedPieces" | "voided">[],
   cash: Pick<CashEntry, "workerId" | "date" | "type" | "amount">[],
   attendance: Pick<Attendance, "workerId" | "date" | "status">[],
   start: string,

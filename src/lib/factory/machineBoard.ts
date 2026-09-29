@@ -43,14 +43,14 @@ export function slotFor(
 }
 
 export function machineTotals(
-  production: Pick<ProductionEntry, "machineId" | "date" | "roundedPieces" | "amount">[],
+  production: Pick<ProductionEntry, "machineId" | "date" | "roundedPieces" | "amount" | "voided">[],
   machineId: number,
   date: string
 ): { pieces: number; amount: number } {
   let pieces = 0;
   let amount = 0;
   for (const p of production) {
-    if (p.machineId !== machineId || p.date !== date) continue;
+    if (p.voided || p.machineId !== machineId || p.date !== date) continue;
     pieces += p.roundedPieces;
     amount += p.amount;
   }
@@ -60,7 +60,7 @@ export function machineTotals(
 export function buildMachineBoard(
   machines: Machine[] = MACHINES,
   sessions: Pick<WorkSession, "id" | "workerId" | "machineId" | "role" | "date">[],
-  production: Pick<ProductionEntry, "machineId" | "date" | "roundedPieces" | "amount">[],
+  production: Pick<ProductionEntry, "machineId" | "date" | "roundedPieces" | "amount" | "voided">[],
   workers: Pick<Worker, "id" | "name">[],
   date: string
 ): MachineBoardRow[] {

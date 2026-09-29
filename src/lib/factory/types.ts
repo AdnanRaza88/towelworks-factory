@@ -52,6 +52,8 @@ export interface ProductionEntry {
   ratePer100: number;
   amount: number;
   note?: string;
+  voided?: boolean;
+  correctedFrom?: string;
 }
 
 export type CashType =

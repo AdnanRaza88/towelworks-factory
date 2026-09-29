@@ -20,6 +20,8 @@ export interface Actions {
   markAttendance: (workerId: string, status: AttendanceStatus, date?: string) => void;
   openSession: (workerId: string, machineId: number, role: WorkerRole, date?: string) => string | null;
   addProduction: (workerId: string, machineId: number, role: WorkerRole, rawPieces: number, date?: string, note?: string, sessionId?: string) => void;
+  voidProduction: (id: string) => boolean;
+  correctProduction: (id: string, rawPieces: number) => boolean;
   addCash: (workerId: string, type: CashType, amount: number, date?: string, note?: string) => void;
   updateRates: (tailorRate: number, helperRate: number) => void;
   setGeminiKey: (key: string) => void;

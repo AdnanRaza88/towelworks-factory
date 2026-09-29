@@ -20,11 +20,12 @@ export function sortByDateDesc<T extends { date: string }>(rows: T[]): T[] {
 }
 
 export function productionTotals(
-  production: Pick<ProductionEntry, "roundedPieces" | "amount">[]
+  production: Pick<ProductionEntry, "roundedPieces" | "amount" | "voided">[]
 ): { pieces: number; prodPay: number } {
   let pieces = 0;
   let prodPay = 0;
   for (const p of production) {
+    if (p.voided) continue;
     pieces += p.roundedPieces;
     prodPay += p.amount;
   }

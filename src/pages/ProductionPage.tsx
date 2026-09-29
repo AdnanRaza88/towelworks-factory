@@ -8,6 +8,8 @@ export default function ProductionPage() {
   const workers = useAppStore((s) => s.workers.filter((w) => w.active));
   const production = useAppStore((s) => s.production);
   const addProduction = useAppStore((s) => s.addProduction);
+  const voidProduction = useAppStore((s) => s.voidProduction);
+  const correctProduction = useAppStore((s) => s.correctProduction);
   const tailorRate = useAppStore((s) => s.settings.tailorRate);
   const helperRate = useAppStore((s) => s.settings.helperRate);
 
@@ -32,6 +34,14 @@ export default function ProductionPage() {
     addProduction(workerId, machineId, role, raw, todayStr(), note || undefined);
     setPieces("");
     setNote("");
+  };
+
+  const onCorrect = (id: string) => {
+    const value = window.prompt("Correct raw pieces");
+    if (!value) return;
+    const next = Number(value);
+    if (!Number.isFinite(next) || next <= 0) return;
+    correctProduction(id, next);
   };
 
   const recent = [...production].reverse().slice(0, 20);
@@ -131,11 +141,29 @@ export default function ProductionPage() {
                 <div className="mt-0.5 flex justify-between text-[var(--muted)]">
                   <span>
                     M{p.machineId} {p.role} - {p.rawPieces} - {p.roundedPieces}
+                    {p.voided ? " · void" : ""}
+                    {p.correctedFrom ? " · corr" : ""}
                   </span>
-                  <span className="font-medium text-[var(--text)]">
+                  <span className={`font-medium ${p.voided ? "line-through text-[var(--muted)]" : "text-[var(--text)]"}`}>
                     {formatRs(p.amount)}
                   </span>
                 </div>
+                {!p.voided && (
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      onClick={() => voidProduction(p.id)}
+                      className="rounded-lg border px-2 py-1 text-[10px] font-medium"
+                    >
+                      Void
+                    </button>
+                    <button
+                      onClick={() => onCorrect(p.id)}
+                      className="rounded-lg border px-2 py-1 text-[10px] font-medium"
+                    >
+                      Correct
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
