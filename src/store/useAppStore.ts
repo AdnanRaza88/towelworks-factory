@@ -3,82 +3,21 @@ import { persist } from "zustand/middleware";
 import {
   AppState, Worker, Attendance, ProductionEntry, CashEntry, WorkSession,
   RateSnapshot, AuditEntry, DEFAULT_SETTINGS, APP_VERSION, WorkerRole,
-  WorkerType, CashType, AttendanceStatus,
 } from "@/lib/factory/types";
 import { roundNearest500, calcAmount, uid, todayStr } from "@/lib/factory/calc";
 import { isValidCashAmount, normalizeCashAmount } from "@/lib/factory/cashRules";
 import { rateFor, resolveRate } from "@/lib/factory/rates";
+import type { Actions, AppStore, VoiceAction } from "./types";
+import { initial, PERSIST_NAME, PERSIST_VERSION } from "./seed";
+import { createPinSlice } from "./slices/pinSlice";
 
-const SEED: Worker[] = [
-  { id: "w1", name: "Imran", role: "tailor", type: "permanent", active: true, ratePer100: 25, createdAt: "2026-01-01" },
-  { id: "w2", name: "Asif", role: "helper", type: "permanent", active: true, ratePer100: 15, createdAt: "2026-01-01" },
-  { id: "w3", name: "Rashid", role: "tailor", type: "outside", active: true, ratePer100: 25, createdAt: "2026-01-01" },
-];
+export type { VoiceAction } from "./types";
 
-export type VoiceAction =
-  | { type: "attendance"; workerName: string; status: AttendanceStatus }
-  | { type: "production"; workerName?: string; machineId: number; role?: WorkerRole; pieces: number }
-  | { type: "cash"; workerName: string; cashType: CashType; amount: number }
-  | { type: "add_worker"; name: string; role: WorkerRole; workerType: WorkerType }
-  | { type: "session"; workerName: string; machineId: number; role: WorkerRole }
-  | { type: "query"; topic: string };
-
-const isFourDigitPin = (pin: string) => /^\d{4}$/.test(pin);
-
-interface Actions {
-  unlock: (pin: string) => boolean;
-  lock: () => void;
-  setPin: (current: string, next: string) => boolean;
-  addWorker: (name: string, role: WorkerRole, type: WorkerType) => string | null;
-  updateWorker: (id: string, patch: Partial<Worker>) => boolean;
-  toggleWorker: (id: string) => void;
-  markAttendance: (workerId: string, status: AttendanceStatus, date?: string) => void;
-  openSession: (workerId: string, machineId: number, role: WorkerRole, date?: string) => string | null;
-  addProduction: (workerId: string, machineId: number, role: WorkerRole, rawPieces: number, date?: string, note?: string, sessionId?: string) => void;
-  addCash: (workerId: string, type: CashType, amount: number, date?: string, note?: string) => void;
-  updateRates: (tailorRate: number, helperRate: number) => void;
-  setGeminiKey: (key: string) => void;
-  setTheme: (theme: "light" | "dark") => void;
-  setMillName: (name: string) => void;
-  exportBackup: () => string;
-  importBackup: (json: string) => boolean;
-  exportWorkerSheet: (workerId?: string) => string;
-  resetDemo: () => void;
-  appendAudit: (action: string, entity: string, detail: string) => void;
-  applyVoiceAction: (action: VoiceAction) => string;
-}
-
-const initial: AppState = {
-  version: 2,
-  settings: { ...DEFAULT_SETTINGS, appVersion: APP_VERSION, theme: "light" },
-  workers: SEED,
-  sessions: [],
-  attendance: [],
-  production: [],
-  cash: [],
-  rateHistory: [{ id: "rate_seed", effectiveFrom: "2026-01-01", tailorRate: 25, helperRate: 15, setBy: "system" }],
-  audit: [],
-  unlocked: true,
-};
-
-export const useAppStore = create<AppState & Actions>()(
+export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
       ...initial,
-      unlock: (pin) => {
-        if (pin !== get().settings.pin) return false;
-        set({ unlocked: true });
-        return true;
-      },
-      lock: () => set({ unlocked: false }),
-      setPin: (current, next) => {
-        if (current !== get().settings.pin) return false;
-        if (!isFourDigitPin(next)) return false;
-        if (next === current) return true;
-        set((s) => ({ settings: { ...s.settings, pin: next } }));
-        get().appendAudit("settings", "pin", "PIN changed");
-        return true;
-      },
+      ...createPinSlice(set, get),
       appendAudit: (action, entity, detail) => {
         const entry: AuditEntry = { id: uid(), at: new Date().toISOString(), action, entity, detail };
         set((s) => ({ audit: [entry, ...s.audit].slice(0, 500) }));
@@ -152,7 +91,7 @@ export const useAppStore = create<AppState & Actions>()(
           const data = JSON.parse(json);
           if (!data.workers || !data.settings) return false;
           set({
-            version: data.version ?? 2,
+            version: data.version ?? PERSIST_VERSION,
             settings: { ...DEFAULT_SETTINGS, ...data.settings, geminiApiKey: data.settings.geminiApiKey || get().settings.geminiApiKey, appVersion: APP_VERSION, theme: data.settings.theme ?? "light" },
             workers: data.workers,
             sessions: data.sessions ?? [],
@@ -231,14 +170,14 @@ export const useAppStore = create<AppState & Actions>()(
       },
     }),
     {
-      name: "towelworks-v2",
-      version: 2,
+      name: PERSIST_NAME,
+      version: PERSIST_VERSION,
       migrate: (persisted: unknown) => {
         const p = persisted as Partial<AppState>;
         return {
           ...initial,
           ...p,
-          version: 2,
+          version: PERSIST_VERSION,
           sessions: p.sessions ?? [],
           rateHistory: p.rateHistory ?? initial.rateHistory,
           audit: p.audit ?? [],
