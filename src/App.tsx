@@ -35,6 +35,7 @@ type TabId = (typeof TABS)[number]["id"] | "providers";
 export default function App() {
   const theme = useAppStore((s) => s.settings.theme ?? "light");
   const unlocked = useAppStore((s) => s.unlocked);
+  const lock = useAppStore((s) => s.lock);
   const [tab, setTab] = useState<TabId>("home");
 
   useEffect(() => {
@@ -63,17 +64,31 @@ export default function App() {
             Offline mill book
           </p>
         </div>
-        <button
-          onClick={() => setTab("agent")}
-          className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
-          style={{
-            background: tab === "agent" ? "var(--primary)" : "var(--card)",
-            color: tab === "agent" ? "#fff" : "var(--text)",
-            borderColor: "var(--border-strong)",
-          }}
-        >
-          Agent talk
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => lock()}
+            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+            style={{
+              background: "var(--card)",
+              color: "var(--text)",
+              borderColor: "var(--border-strong)",
+            }}
+          >
+            Lock
+          </button>
+          <button
+            onClick={() => setTab("agent")}
+            className="rounded-full px-3 py-1.5 text-[10px] font-bold border"
+            style={{
+              background: tab === "agent" ? "var(--primary)" : "var(--card)",
+              color: tab === "agent" ? "#fff" : "var(--text)",
+              borderColor: "var(--border-strong)",
+            }}
+          >
+            Agent talk
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-3 py-3">
