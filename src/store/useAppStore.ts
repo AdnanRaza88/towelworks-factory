@@ -1,16 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  AppState, CashEntry,
-  RateSnapshot, AuditEntry, DEFAULT_SETTINGS, APP_VERSION,
+  AppState,
+  AuditEntry, DEFAULT_SETTINGS, APP_VERSION,
 } from "@/lib/factory/types";
 import { uid, todayStr } from "@/lib/factory/calc";
-import { isValidCashAmount, normalizeCashAmount } from "@/lib/factory/cashRules";
 import type { AppStore, VoiceAction } from "./types";
 import { initial, PERSIST_NAME, PERSIST_VERSION } from "./seed";
 import { createPinSlice } from "./slices/pinSlice";
 import { createWorkersSlice } from "./slices/workersSlice";
 import { createProductionSlice } from "./slices/productionSlice";
+import { createCashRatesSlice } from "./slices/cashRatesSlice";
 
 export type { VoiceAction } from "./types";
 
@@ -21,19 +21,10 @@ export const useAppStore = create<AppStore>()(
       ...createPinSlice(set, get),
       ...createWorkersSlice(set, get),
       ...createProductionSlice(set, get),
+      ...createCashRatesSlice(set, get),
       appendAudit: (action, entity, detail) => {
         const entry: AuditEntry = { id: uid(), at: new Date().toISOString(), action, entity, detail };
         set((s) => ({ audit: [entry, ...s.audit].slice(0, 500) }));
-      },
-      addCash: (workerId, type, amount, date = todayStr(), note) => {
-        if (!isValidCashAmount(amount)) return;
-        const entry: CashEntry = { id: uid(), workerId, date, type, amount: normalizeCashAmount(amount), note };
-        set((s) => ({ cash: [...s.cash, entry] }));
-      },
-      updateRates: (tailorRate, helperRate) => {
-        if (tailorRate <= 0 || helperRate <= 0) return;
-        const snap: RateSnapshot = { id: uid(), effectiveFrom: todayStr(), tailorRate, helperRate, setBy: "admin" };
-        set((s) => ({ settings: { ...s.settings, tailorRate, helperRate }, rateHistory: [snap, ...s.rateHistory] }));
       },
       setGeminiKey: (key) => set((s) => ({ settings: { ...s.settings, geminiApiKey: key.trim() } })),
       setTheme: (theme) => {
