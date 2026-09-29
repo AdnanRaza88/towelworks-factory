@@ -1,8 +1,8 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 14:05 PKT
+Last updated: 2026-09-29 15:01 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 audit prev/next)
+Repo: AdnanRaza88/towelworks-factory (main @ b05e641 PIN fully wired)
 
 ## 1. Entry Points
 
@@ -15,7 +15,7 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 audit prev/next)
 | Path | Role | Key exports | Depends on | Depended by |
 |------|------|-------------|------------|-------------|
 | src/main.tsx | boot | — | App | — |
-| src/App.tsx | shell/tabs + PIN gate | App | store, pages, PinScreen | main |
+| src/App.tsx | shell/tabs + PIN gate + header lock | App | store, pages, PinScreen | main |
 | src/store/useAppStore.ts | persisted state + actions | useAppStore, VoiceAction | types, calc, cashRules, rates | all pages, App |
 | src/lib/factory/types.ts | domain types + APP_VERSION 1.3.0 | WorkerRole, Attendance, ProductionEntry, CashType, RateSnapshot, AuditEntry, AppState, MACHINES, DEFAULT_SETTINGS, APP_VERSION | — | store, pages, cashRules, rates, payroll, audit |
 | src/lib/factory/calc.ts | round/pay/week/uid | roundNearest500, calcAmount, getWeekRange, todayStr, uid | — | store, ProductionPage, PayrollPage, tests |
@@ -34,7 +34,7 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 1 audit prev/next)
 | src/pages/Dashboard.tsx | home | default | store | App |
 | src/pages/WorkersPage.tsx | workers/attendance | default | store | App |
 | src/pages/CashPage.tsx | cash form | default | store, types, calc, utils | App |
-| src/pages/SettingsPage.tsx | settings + audit prev/next | default | store, audit | App |
+| src/pages/SettingsPage.tsx | settings + audit + change PIN | default | store, audit | App |
 | src/pages/ProvidersPage.tsx | providers | default | store | App |
 | src/pages/AgentPage.tsx | voice agent UI | default | store, voiceAgent | App |
 | src/lib/voiceAgent.ts | Gemini voice | — | store VoiceAction | AgentPage |
@@ -63,12 +63,14 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 
 ### PIN
 
-- settings.pin default "1234"
-- unlock(pin) compares pin === settings.pin; returns false on mismatch (C2 2026-09-29)
+- settings.pin default "1234" (4 digits)
+- unlock(pin) compares pin === settings.pin; returns false on mismatch (C2)
 - PinScreen calls unlock(next) at 4 digits
 - App renders PinScreen when unlocked === false (C2)
-- lock() sets unlocked false; persist partialize does not save unlocked (reload starts unlocked)
-- Phase 1 still: change pin in settings, lock from header
+- lock() sets unlocked false; App header Lock button calls lock()
+- setPin(current, next) requires current === settings.pin and next /^\d{4}$/; writes settings.pin; audits "PIN changed"
+- SettingsPage Floor PIN form: current + new + confirm → setPin
+- persist partialize does not save unlocked (reload starts unlocked)
 
 ### Rates (Phase 1 rates.ts)
 
@@ -121,6 +123,8 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - APP_VERSION string must match package.json version (1.3.0 after C5)
 - persist key `towelworks-v2`, store version 2
 - unlock(pin) must compare settings.pin and return boolean
+- setPin(current, next) requires matching current PIN and 4-digit next
+- lock() sets unlocked false; not persisted
 - appendAudit(action, entity, detail) prepends AuditEntry; cap 500
 
 ## 5. Change Impact Rules
@@ -134,7 +138,7 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - Week payroll totals must use payroll.ts, not a second copy in PayrollPage.
 - Audit walk must use audit.ts, not a second copy of prev/next in SettingsPage.
 - Hybrid UI only when touching styles.
-- Changing unlock contract requires PinScreen + App gate.
+- Changing unlock/setPin/lock contract requires PinScreen + App gate + Settings PIN form.
 - Bumping version requires package.json + APP_VERSION + DEFAULT_SETTINGS.appVersion together.
 
 ## 6. Recent Changes Log
@@ -149,3 +153,4 @@ Rate on save: `resolveRate(role, date, rateHistory, settings)` from `src/lib/fac
 - 2026-09-29 12:00 PKT — Phase 1 rates.ts: extract rateFor + resolveRate; store imports module; rates.test added.
 - 2026-09-29 13:00 PKT — Phase 1 payroll.ts: extract week row math; PayrollPage uses buildPayrollRows; payroll.test added.
 - 2026-09-29 14:05 PKT — Phase 1 audit: audit.ts prev/next + Settings browser + audit.test.
+- 2026-09-29 15:01 PKT — Phase 1 PIN wired: setPin + Settings change form + header Lock (3777d8b, bdfba70, b05e641).
