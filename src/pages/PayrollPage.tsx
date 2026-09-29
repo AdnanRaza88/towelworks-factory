@@ -27,7 +27,7 @@ export default function PayrollPage() {
             a.workerId === w.id &&
             a.date >= start &&
             a.date <= end &&
-            a.present
+            (a.status === "present" || a.status === "half")
         ).length;
 
         const cashOut = cash

@@ -1,6 +1,6 @@
 # Code Connection Map
 
-Last updated: 2026-09-29 07:55 PKT
+Last updated: 2026-09-29 08:00 PKT
 
 Repo: AdnanRaza88/towelworks-factory (main)
 
@@ -49,7 +49,7 @@ Must never change signature without updating both callers + this map.
 
 - Model: `Attendance.status: AttendanceStatus`
 - markAttendance writes `status`
-- PayrollPage still reads `a.present` (C3)
+- PayrollPage daysPresent uses status === "present" || status === "half" (C3 2026-09-29)
 
 ### PIN
 
@@ -88,3 +88,4 @@ Must never change signature without updating both callers + this map.
 - 2026-09-28 20:55 PKT — initial scan of towelworks-factory main e97d177; C1 identified as next (ProductionPage arity).
 - 2026-09-28 20:58 PKT — C1: ProductionPage addProduction(workerId, machineId, role, raw, date, note); role select + preview via settings rates.
 - 2026-09-29 07:55 PKT — C2: unlock compares settings.pin; App gates with PinScreen when unlocked=false.
+- 2026-09-29 08:00 PKT — C3: PayrollPage daysPresent uses status present or half.
