@@ -1,15 +1,16 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  AppState, Worker, Attendance, ProductionEntry, CashEntry, WorkSession,
-  RateSnapshot, AuditEntry, DEFAULT_SETTINGS, APP_VERSION, WorkerRole,
+  AppState, ProductionEntry, CashEntry, WorkSession,
+  RateSnapshot, AuditEntry, DEFAULT_SETTINGS, APP_VERSION,
 } from "@/lib/factory/types";
 import { roundNearest500, calcAmount, uid, todayStr } from "@/lib/factory/calc";
 import { isValidCashAmount, normalizeCashAmount } from "@/lib/factory/cashRules";
-import { rateFor, resolveRate } from "@/lib/factory/rates";
-import type { Actions, AppStore, VoiceAction } from "./types";
+import { resolveRate } from "@/lib/factory/rates";
+import type { AppStore, VoiceAction } from "./types";
 import { initial, PERSIST_NAME, PERSIST_VERSION } from "./seed";
 import { createPinSlice } from "./slices/pinSlice";
+import { createWorkersSlice } from "./slices/workersSlice";
 
 export type { VoiceAction } from "./types";
 
@@ -18,31 +19,10 @@ export const useAppStore = create<AppStore>()(
     (set, get) => ({
       ...initial,
       ...createPinSlice(set, get),
+      ...createWorkersSlice(set, get),
       appendAudit: (action, entity, detail) => {
         const entry: AuditEntry = { id: uid(), at: new Date().toISOString(), action, entity, detail };
         set((s) => ({ audit: [entry, ...s.audit].slice(0, 500) }));
-      },
-      addWorker: (name, role, type) => {
-        const trimmed = name.trim();
-        if (!trimmed) return null;
-        const w: Worker = { id: uid(), name: trimmed, role, type, active: true, ratePer100: rateFor(role, get().settings), createdAt: todayStr() };
-        set((s) => ({ workers: [...s.workers, w] }));
-        get().appendAudit("create", "worker", `${w.name} (${role}/${type})`);
-        return w.id;
-      },
-      updateWorker: (id, patch) => {
-        if (!get().workers.some((w) => w.id === id)) return false;
-        set((s) => ({ workers: s.workers.map((w) => (w.id === id ? { ...w, ...patch } : w)) }));
-        return true;
-      },
-      toggleWorker: (id) => set((s) => ({ workers: s.workers.map((w) => (w.id === id ? { ...w, active: !w.active } : w)) })),
-      markAttendance: (workerId, status, date = todayStr()) => {
-        set((s) => {
-          const existing = s.attendance.find((a) => a.workerId === workerId && a.date === date);
-          if (existing) return { attendance: s.attendance.map((a) => (a.id === existing.id ? { ...a, status } : a)) };
-          return { attendance: [...s.attendance, { id: uid(), workerId, date, status }] };
-        });
-        get().appendAudit("attendance", workerId, `${date}:${status}`);
       },
       openSession: (workerId, machineId, role, date = todayStr()) => {
         const worker = get().workers.find((w) => w.id === workerId);
