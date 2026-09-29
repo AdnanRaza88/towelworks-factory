@@ -26,12 +26,16 @@ export default function SettingsPage({ onOpenProviders }: Props) {
   const updateRates = useAppStore((s) => s.updateRates);
   const setTheme = useAppStore((s) => s.setTheme);
   const setMillName = useAppStore((s) => s.setMillName);
+  const setPin = useAppStore((s) => s.setPin);
   const resetDemo = useAppStore((s) => s.resetDemo);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [tailor, setTailor] = useState(String(settings.tailorRate));
   const [helper, setHelper] = useState(String(settings.helperRate));
   const [mill, setMill] = useState(settings.millName);
+  const [currentPin, setCurrentPin] = useState("");
+  const [nextPin, setNextPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
   const [msg, setMsg] = useState("");
   const [auditIndex, setAuditIndex] = useState(0);
   const theme = settings.theme ?? "light";
@@ -113,6 +117,56 @@ export default function SettingsPage({ onOpenProviders }: Props) {
           className="btn-solid w-full rounded-xl py-2 text-sm"
         >
           Save
+        </button>
+      </div>
+
+      <div className="surface rounded-2xl p-3 space-y-2">
+        <p className="text-sm font-bold">Floor PIN</p>
+        <p className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>
+          4 digits. Current PIN required to change.
+        </p>
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          value={currentPin}
+          onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="Current PIN"
+          className="w-full rounded-xl px-3 py-2 text-sm font-bold"
+        />
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          value={nextPin}
+          onChange={(e) => setNextPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="New PIN"
+          className="w-full rounded-xl px-3 py-2 text-sm font-bold"
+        />
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={4}
+          value={confirmPin}
+          onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="Confirm new PIN"
+          className="w-full rounded-xl px-3 py-2 text-sm font-bold"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            if (nextPin.length !== 4) return flash("New PIN 4 digits hona chahiye");
+            if (nextPin !== confirmPin) return flash("New PIN match nahi karta");
+            const ok = setPin(currentPin, nextPin);
+            if (!ok) return flash("Current PIN galat hai");
+            setCurrentPin("");
+            setNextPin("");
+            setConfirmPin("");
+            flash("PIN saved");
+          }}
+          className="btn-solid w-full rounded-xl py-2 text-sm"
+        >
+          Change PIN
         </button>
       </div>
 
