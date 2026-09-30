@@ -1,4 +1,4 @@
-import { RateSnapshot, WorkerRole } from "./types";
+import { RateSnapshot, WorkerRole } from "./types.ts";
 
 export function rateFor(role: WorkerRole, s: { tailorRate: number; helperRate: number }) {
   return role === "tailor" ? s.tailorRate : s.helperRate;

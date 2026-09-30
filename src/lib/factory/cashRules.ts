@@ -1,4 +1,4 @@
-import { CashEntry, CashType } from "./types";
+import { CashEntry, CashType } from "./types.ts";
 
 export const CASH_DEBIT_TYPES: readonly CashType[] = [
   "advance",

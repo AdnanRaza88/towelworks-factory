@@ -1,4 +1,4 @@
-import { MACHINES, Machine, ProductionEntry, WorkSession, Worker, WorkerRole } from "./types";
+import { MACHINES, Machine, ProductionEntry, WorkSession, Worker, WorkerRole } from "./types.ts";
 
 export type MachineSlot = {
   sessionId: string | null;

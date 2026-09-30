@@ -4,8 +4,8 @@ import {
   CashEntry,
   ProductionEntry,
   Worker,
-} from "./types";
-import { cashOutTotal, netPayable } from "./cashRules";
+} from "./types.ts";
+import { cashOutTotal, netPayable } from "./cashRules.ts";
 
 export function countsAsPresent(status: AttendanceStatus): boolean {
   return status === "present" || status === "half";

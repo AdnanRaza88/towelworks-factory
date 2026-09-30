@@ -4,8 +4,8 @@ import {
   ProductionEntry,
   WorkSession,
   Worker,
-} from "./types";
-import { buildPayrollRows, totalNetPayable } from "./payroll";
+} from "./types.ts";
+import { buildPayrollRows, totalNetPayable } from "./payroll.ts";
 
 export type CsvValue = string | number | boolean | null | undefined;
 

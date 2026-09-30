@@ -4,7 +4,7 @@ import {
   ProductionEntry,
   WorkSession,
   Worker,
-} from "./types";
+} from "./types.ts";
 
 export type SearchKind =
   | "worker"

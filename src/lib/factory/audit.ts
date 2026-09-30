@@ -1,4 +1,4 @@
-import { AuditEntry } from "./types";
+import { AuditEntry } from "./types.ts";
 
 export type AuditLike = Pick<AuditEntry, "id" | "at" | "action" | "entity" | "detail">;
 

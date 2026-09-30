@@ -4,9 +4,9 @@ import {
   ProductionEntry,
   WorkSession,
   Worker,
-} from "./types";
-import { cashOutTotal, netPayable } from "./cashRules";
-import { countsAsPresent } from "./payroll";
+} from "./types.ts";
+import { cashOutTotal, netPayable } from "./cashRules.ts";
+import { countsAsPresent } from "./payroll.ts";
 
 export function forWorker<T extends { workerId: string }>(
   rows: T[],
