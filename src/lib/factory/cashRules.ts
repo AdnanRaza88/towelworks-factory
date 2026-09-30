@@ -1,4 +1,4 @@
-import { CashEntry, CashType } from "./types.ts";
+import type { CashEntry, CashType } from "./types.ts";
 
 export const CASH_DEBIT_TYPES: readonly CashType[] = [
   "advance",
@@ -13,7 +13,7 @@ export const CASH_CREDIT_TYPES: readonly CashType[] = [
 ];
 
 export function isCashDebit(type: CashType): boolean {
-  return CASH_DEBIT_TYPES.includes(type);
+  return (CASH_DEBIT_TYPES as readonly string[]).includes(type);
 }
 
 export function isValidCashAmount(amount: number): boolean {

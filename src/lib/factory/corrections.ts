@@ -1,4 +1,4 @@
-import { ProductionEntry } from "./types.ts";
+import type { ProductionEntry } from "./types.ts";
 import { calcAmount, roundNearest500, uid } from "./calc.ts";
 
 export function isLiveProduction(
