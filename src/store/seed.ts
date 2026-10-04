@@ -1,7 +1,7 @@
 import { AppState, Worker, DEFAULT_SETTINGS, APP_VERSION } from "@/lib/factory/types";
 
 export const PERSIST_NAME = "towelworks-v2";
-export const PERSIST_VERSION = 2;
+export const PERSIST_VERSION = 3;
 
 export const SEED: Worker[] = [
   { id: "w1", name: "Imran", role: "tailor", type: "permanent", active: true, ratePer100: 25, createdAt: "2026-01-01" },
@@ -19,5 +19,6 @@ export const initial: AppState = {
   cash: [],
   rateHistory: [{ id: "rate_seed", effectiveFrom: "2026-01-01", tailorRate: 25, helperRate: 15, setBy: "system" }],
   audit: [],
+  slips: [],
   unlocked: true,
 };

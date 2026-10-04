@@ -1,5 +1,6 @@
 import type {
   AppState, Worker, WorkerRole, WorkerType, CashType, AttendanceStatus,
+  AgentModel, NeedleStatus, SlipPhoto,
 } from "@/lib/factory/types";
 
 export type VoiceAction =
@@ -25,6 +26,9 @@ export interface Actions {
   addCash: (workerId: string, type: CashType, amount: number, date?: string, note?: string) => void;
   updateRates: (tailorRate: number, helperRate: number) => void;
   setGeminiKey: (key: string) => void;
+  setAgentModel: (model: AgentModel) => void;
+  setNeedleStatus: (status: NeedleStatus) => void;
+  addSlip: (note: string, dataUrl?: string, workerId?: string) => string;
   setTheme: (theme: "light" | "dark") => void;
   setMillName: (name: string) => void;
   exportBackup: () => string;

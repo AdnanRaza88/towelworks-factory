@@ -36,13 +36,29 @@ export const useAppStore = create<AppStore>()(
           sessions: p.sessions ?? [],
           rateHistory: p.rateHistory ?? initial.rateHistory,
           audit: p.audit ?? [],
-          settings: { ...DEFAULT_SETTINGS, ...(p.settings ?? {}), appVersion: APP_VERSION, theme: (p.settings as { theme?: "light" | "dark" })?.theme ?? "light" },
+          slips: p.slips ?? [],
+          settings: {
+            ...DEFAULT_SETTINGS,
+            ...(p.settings ?? {}),
+            appVersion: APP_VERSION,
+            theme: (p.settings as { theme?: "light" | "dark" })?.theme ?? "light",
+            agentModel: (p.settings as { agentModel?: AppState["settings"]["agentModel"] })?.agentModel ?? "offline",
+            needleStatus: (p.settings as { needleStatus?: AppState["settings"]["needleStatus"] })?.needleStatus ?? "none",
+          },
           unlocked: true,
         } as AppState;
       },
       partialize: (s) => ({
-        version: s.version, settings: s.settings, workers: s.workers, sessions: s.sessions,
-        attendance: s.attendance, production: s.production, cash: s.cash, rateHistory: s.rateHistory, audit: s.audit,
+        version: s.version,
+        settings: s.settings,
+        workers: s.workers,
+        sessions: s.sessions,
+        attendance: s.attendance,
+        production: s.production,
+        cash: s.cash,
+        rateHistory: s.rateHistory,
+        audit: s.audit,
+        slips: s.slips,
       }),
     }
   )
