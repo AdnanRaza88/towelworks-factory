@@ -10,6 +10,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import ProvidersPage from "@/pages/ProvidersPage";
 import AgentPage from "@/pages/AgentPage";
 import SearchPage from "@/pages/SearchPage";
+import LedgerPage from "@/pages/LedgerPage";
 import PinScreen from "@/pages/PinScreen";
 import {
   LayoutDashboard,
@@ -20,12 +21,14 @@ import {
   Settings,
   Bot,
   Grid3x3,
+  Table2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
   { id: "home", label: "Home", icon: LayoutDashboard },
   { id: "floor", label: "Floor", icon: Grid3x3 },
+  { id: "ledger", label: "Sheet", icon: Table2 },
   { id: "workers", label: "Workers", icon: Users },
   { id: "production", label: "Prod", icon: Factory },
   { id: "agent", label: "Agent", icon: Bot },
@@ -95,7 +98,7 @@ export default function App() {
               color: tab === "agent" ? "#fff" : undefined,
             }}
           >
-            Agent talk
+            Agent
           </button>
         </div>
       </header>
@@ -105,6 +108,7 @@ export default function App() {
           <Dashboard onNavigate={(t) => setTab(t as TabId)} />
         )}
         {tab === "floor" && <MachineBoardPage />}
+        {tab === "ledger" && <LedgerPage />}
         {tab === "workers" && <WorkersPage />}
         {tab === "production" && <ProductionPage />}
         {tab === "agent" && <AgentPage />}

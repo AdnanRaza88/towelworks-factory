@@ -7,6 +7,9 @@ export type AttendanceStatus =
   | "off"
   | "unscheduled";
 
+export type AgentModel = "offline" | "gemini" | "needle";
+export type NeedleStatus = "none" | "ready" | "error";
+
 export interface Worker {
   id: string;
   name: string;
@@ -89,6 +92,14 @@ export interface AuditEntry {
   detail: string;
 }
 
+export interface SlipPhoto {
+  id: string;
+  createdAt: string;
+  note: string;
+  workerId?: string;
+  dataUrl?: string;
+}
+
 export interface AppSettings {
   pin: string;
   millName: string;
@@ -98,6 +109,8 @@ export interface AppSettings {
   geminiApiKey: string;
   appVersion: string;
   theme: "light" | "dark";
+  agentModel: AgentModel;
+  needleStatus: NeedleStatus;
 }
 
 export interface AppState {
@@ -110,6 +123,7 @@ export interface AppState {
   cash: CashEntry[];
   rateHistory: RateSnapshot[];
   audit: AuditEntry[];
+  slips: SlipPhoto[];
   unlocked: boolean;
 }
 
@@ -125,8 +139,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   helperRate: 15,
   weekStart: "saturday",
   geminiApiKey: "",
-  appVersion: "1.3.0",
+  appVersion: "1.4.0",
   theme: "light",
+  agentModel: "offline",
+  needleStatus: "none",
 };
 
-export const APP_VERSION = "1.3.0";
+export const APP_VERSION = "1.4.0";
