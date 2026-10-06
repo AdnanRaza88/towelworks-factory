@@ -35,7 +35,7 @@ export default function MachineBoardPage() {
         <div>
           <h2 className="text-base font-semibold">Floor</h2>
           <p className="text-xs font-bold mono" style={{ color: "var(--muted)" }}>
-            {date}
+            {date} · Har machine: 1 tailor + 1 helper
           </p>
         </div>
         <p className="text-[11px] font-bold" style={{ color: "var(--muted)" }}>
