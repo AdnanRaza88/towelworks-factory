@@ -11,6 +11,7 @@ import type {
   AppSettings,
 } from "@/lib/factory/types";
 import { todayStr, getWeekRange } from "@/lib/factory/calc";
+import { cashOutTotal, netPayable } from "@/lib/factory/cashRules";
 
 export type ResolvedVoice =
   | { kind: "action"; action: VoiceAction; reply: string }
@@ -26,6 +27,25 @@ export type FactorySnapshot = {
   sessions: WorkSession[];
 };
 
+const liveProd = (snap: FactorySnapshot) =>
+  snap.production.filter((p) => !p.voided);
+
+function workerPay(snap: FactorySnapshot, workerId: string): number {
+  return liveProd(snap)
+    .filter((p) => p.workerId === workerId)
+    .reduce((s, p) => s + p.amount, 0);
+}
+
+function workerNet(snap: FactorySnapshot, workerId: string): {
+  pay: number;
+  cashOut: number;
+  net: number;
+} {
+  const pay = workerPay(snap, workerId);
+  const cashOut = cashOutTotal(snap.cash.filter((c) => c.workerId === workerId));
+  return { pay, cashOut, net: netPayable(pay, cashOut) };
+}
+
 export function buildFactoryContext(snap: FactorySnapshot): string {
   const today = todayStr();
   const { start, end } = getWeekRange(today);
@@ -39,6 +59,9 @@ export function buildFactoryContext(snap: FactorySnapshot): string {
     `Rates: Tailor Rs.${snap.settings.tailorRate}/100, Helper Rs.${snap.settings.helperRate}/100`
   );
   lines.push(`Active workers: ${active.length}`);
+  lines.push(
+    `Permanent: ${active.filter((w) => w.type === "permanent").length}, Outside: ${active.filter((w) => w.type === "outside").length}`
+  );
 
   lines.push("\nWORKERS:");
   for (const w of active) {
@@ -55,7 +78,7 @@ export function buildFactoryContext(snap: FactorySnapshot): string {
     lines.push(`- ${w?.name ?? a.workerId}: ${a.status}`);
   }
 
-  lines.push("\nSESSIONS TODAY:");
+  lines.push("\nSESSIONS TODAY (1 tailor + 1 helper per machine):");
   const sessToday = snap.sessions.filter((s) => s.date === today);
   if (!sessToday.length) lines.push("- (none)");
   for (const s of sessToday) {
@@ -63,10 +86,8 @@ export function buildFactoryContext(snap: FactorySnapshot): string {
     lines.push(`- M${s.machineId} ${s.role}: ${w?.name ?? s.workerId}`);
   }
 
-  const weekProd = snap.production.filter(
-    (p) => p.date >= start && p.date <= end
-  );
-  const todayProd = snap.production.filter((p) => p.date === today);
+  const weekProd = liveProd(snap).filter((p) => p.date >= start && p.date <= end);
+  const todayProd = liveProd(snap).filter((p) => p.date === today);
   const weekPay = weekProd.reduce((s, p) => s + p.amount, 0);
   const todayPcs = todayProd.reduce((s, p) => s + p.roundedPieces, 0);
   lines.push(`\nPRODUCTION: today pieces=${todayPcs}, week pay=Rs.${weekPay}`);
@@ -84,26 +105,22 @@ export function buildFactoryContext(snap: FactorySnapshot): string {
     lines.push(`- ${c.date} ${w?.name}: ${c.type} Rs.${c.amount}`);
   }
 
-  lines.push("\nWORKER TOTALS (all time in store):");
+  lines.push("\nHISAB (voided production skipped; net = pay - cashOut):");
   for (const w of active) {
-    const pay = snap.production
-      .filter((p) => p.workerId === w.id)
-      .reduce((s, p) => s + p.amount, 0);
-    const cashOut = snap.cash
-      .filter((c) => c.workerId === w.id)
-      .reduce((s, c) => {
-        if (c.type === "return" || c.type === "payment") return s - c.amount;
-        return s + c.amount;
-      }, 0);
-    lines.push(`- ${w.name}: prod pay Rs.${pay}, cash out Rs.${cashOut}`);
+    const h = workerNet(snap, w.id);
+    lines.push(
+      `- ${w.name} (${w.type}): pay Rs.${h.pay}, cashOut Rs.${h.cashOut}, net Rs.${h.net}`
+    );
   }
 
   return lines.join("\n");
 }
 
 const SYSTEM = `You are TowelWorks factory docking agent (Roman Urdu + simple English).
+Domain lock: overlock only (karigar/tailor + cropper/helper), permanent vs outside, hisab.
+Simple sessions: 1 tailor + 1 helper per machine per date.
 You have LIVE factory data in FACTORY_DATA below. Use ONLY that data for facts.
-Be helpful, short, and clear. Answer questions about workers, attendance, production, cash, payroll, machines, rates.
+Be helpful, short, and clear.
 
 If user wants a CHANGE (mark attendance, add production, cash, add worker, session), return JSON:
 {"type":"action","reply":"short confirm question in Roman Urdu/English","action":{...}}
@@ -206,6 +223,26 @@ export function parseLocalVoice(text: string): VoiceAction | null {
   return null;
 }
 
+function pairLines(snap: FactorySnapshot, date: string): string {
+  const sess = snap.sessions.filter((s) => s.date === date);
+  if (!sess.length) return "Aaj koi pair session nahi.";
+  const byMachine = new Map<number, { tailor?: string; helper?: string }>();
+  for (const s of sess) {
+    const slot = byMachine.get(s.machineId) ?? {};
+    const name = snap.workers.find((w) => w.id === s.workerId)?.name ?? "?";
+    if (s.role === "tailor") slot.tailor = name;
+    else slot.helper = name;
+    byMachine.set(s.machineId, slot);
+  }
+  return [...byMachine.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(
+      ([id, pair]) =>
+        `M${id}: tailor ${pair.tailor ?? "—"} + helper ${pair.helper ?? "—"}`
+    )
+    .join("; ");
+}
+
 export function answerFromStore(text: string, snap: FactorySnapshot): string | null {
   const t = text.toLowerCase();
   const today = todayStr();
@@ -216,43 +253,50 @@ export function answerFromStore(text: string, snap: FactorySnapshot): string | n
     return `Theek hoon. ${snap.settings.millName} agent ready. ${active.length} active workers. Bolo kya chahiye?`;
   }
 
-  if (/outside|bahar|permanent|hisab|ledger|net pay|advance|loan/i.test(t)) {
-    const typeFilter = /outside|bahar/i.test(t)
-      ? "outside"
-      : /permanent/i.test(t)
-        ? "permanent"
-        : null;
-    const list = typeFilter
-      ? active.filter((w) => w.type === typeFilter)
-      : active;
-    if (!list.length) return typeFilter ? `${typeFilter} worker nahi` : "Active worker nahi";
-    const bits: string[] = [];
-    for (const w of list.slice(0, 12)) {
-      const pay = snap.production
-        .filter((p) => p.workerId === w.id && !p.voided)
-        .reduce((s, p) => s + p.amount, 0);
-      const advances = snap.cash
-        .filter((c) => c.workerId === w.id && c.type === "advance")
-        .reduce((s, c) => s + Math.abs(c.amount), 0);
-      const loans = snap.cash
-        .filter((c) => c.workerId === w.id && c.type === "loan")
-        .reduce((s, c) => s + Math.abs(c.amount), 0);
-      const cashOut = snap.cash
-        .filter((c) => c.workerId === w.id)
-        .reduce((s, c) => {
-          if (c.type === "return" || c.type === "payment" || c.type === "settlement")
-            return s - Math.abs(c.amount);
-          return s + Math.abs(c.amount);
-        }, 0);
-      bits.push(
-        `${w.name}(${w.role}/${w.type}): pay Rs.${pay}, adv Rs.${advances}, loan Rs.${loans}, net ~Rs.${pay - cashOut}`
-      );
-    }
-    const label = typeFilter ?? "all";
-    return `${label} hisab (${list.length}): ${bits.join("; ")}`;
+  if (/permanent|pakka/.test(t) && /worker|list|bande|kaun|kon|kitne/.test(t)) {
+    const list = active.filter((w) => w.type === "permanent");
+    const names = list.map((w) => `${w.name} (${w.role})`).join(", ");
+    return `Permanent (${list.length}): ${names || "—"}.`;
   }
 
-  if (/worker|bande|staff|kitne|list/i.test(t)) {
+  if (/outside|bahar/.test(t) && /advance|peshgi/.test(t)) {
+    const outs = active.filter((w) => w.type === "outside");
+    if (!outs.length) return "Koi outside worker nahi.";
+    return outs
+      .map((w) => {
+        const adv = snap.cash
+          .filter((c) => c.workerId === w.id && c.type === "advance")
+          .reduce((s, c) => s + c.amount, 0);
+        return `${w.name} advance Rs.${adv}`;
+      })
+      .join("; ");
+  }
+
+  if (/outside|bahar/.test(t) && /worker|list|bande|kaun|kon|kitne/.test(t)) {
+    const list = active.filter((w) => w.type === "outside");
+    const names = list.map((w) => `${w.name} (${w.role})`).join(", ");
+    return `Outside (${list.length}): ${names || "—"}.`;
+  }
+
+  if (/session|pair|machine board|floor/.test(t)) {
+    return pairLines(snap, today);
+  }
+
+  if (/hisab|net payable|net pay|baqi|baqaya/.test(t)) {
+    const named = active.find((w) => t.includes(w.name.toLowerCase()));
+    if (named) {
+      const h = workerNet(snap, named.id);
+      return `${named.name} hisab: pay Rs.${h.pay}, cashOut Rs.${h.cashOut}, net Rs.${h.net}.`;
+    }
+    const rows = active.map((w) => {
+      const h = workerNet(snap, w.id);
+      return `${w.name} net Rs.${h.net}`;
+    });
+    const total = active.reduce((s, w) => s + workerNet(snap, w.id).net, 0);
+    return `Hisab net payable Rs.${total}. ${rows.join("; ") || "—"}.`;
+  }
+
+  if (/worker|bande|staff|kitne|list/i.test(t) && /update|status|kaun|kon|kya|kitne|list|record/i.test(t)) {
     const names = active.map((w) => `${w.name} (${w.role}/${w.type})`).join(", ");
     const present = snap.attendance.filter(
       (a) => a.date === today && a.status === "present"
@@ -272,24 +316,13 @@ export function answerFromStore(text: string, snap: FactorySnapshot): string | n
   }
 
   if (/production|piece|pieces|kaam/i.test(t)) {
-    const todayPcs = snap.production
-      .filter((p) => p.date === today && !p.voided)
+    const todayPcs = liveProd(snap)
+      .filter((p) => p.date === today)
       .reduce((s, p) => s + p.roundedPieces, 0);
-    const weekPay = snap.production
-      .filter((p) => p.date >= start && p.date <= end && !p.voided)
+    const weekPay = liveProd(snap)
+      .filter((p) => p.date >= start && p.date <= end)
       .reduce((s, p) => s + p.amount, 0);
     return `Aaj pieces: ${todayPcs}. Is week production pay: Rs.${weekPay}.`;
-  }
-
-  if (/session|machine|floor|pair/i.test(t)) {
-    const sess = snap.sessions.filter((s) => s.date === today);
-    if (!sess.length) return "Aaj koi session nahi. Floor pe assign karo: 1 tailor + 1 helper per machine.";
-    return sess
-      .map((s) => {
-        const w = snap.workers.find((x) => x.id === s.workerId);
-        return `M${s.machineId} ${s.role}: ${w?.name ?? "?"}`;
-      })
-      .join("; ");
   }
 
   if (/cash|advance|peshgi|loan|paise/i.test(t)) {
@@ -305,17 +338,9 @@ export function answerFromStore(text: string, snap: FactorySnapshot): string | n
 
   for (const w of active) {
     if (t.includes(w.name.toLowerCase())) {
-      const pay = snap.production
-        .filter((p) => p.workerId === w.id && !p.voided)
-        .reduce((s, p) => s + p.amount, 0);
-      const cashOut = snap.cash
-        .filter((c) => c.workerId === w.id)
-        .reduce((s, c) => {
-          if (c.type === "return" || c.type === "payment") return s - c.amount;
-          return s + c.amount;
-        }, 0);
+      const h = workerNet(snap, w.id);
       const att = snap.attendance.find((a) => a.workerId === w.id && a.date === today);
-      return `${w.name}: ${w.role}/${w.type}, aaj ${att?.status ?? "unmarked"}, prod pay Rs.${pay}, cash out Rs.${cashOut}, net ~Rs.${pay - cashOut}.`;
+      return `${w.name}: ${w.role}/${w.type}, aaj ${att?.status ?? "unmarked"}, pay Rs.${h.pay}, cashOut Rs.${h.cashOut}, net Rs.${h.net}.`;
     }
   }
 
@@ -333,17 +358,7 @@ async function callGemini(
     .slice(-6)
     .map((h) => `${h.role}: ${h.text}`)
     .join("\n");
-  const prompt = `${SYSTEM}
-
-FACTORY_DATA:
-${context}
-
-RECENT_CHAT:
-${hist || "(none)"}
-
-User: ${userText}
-
-Return JSON only.`;
+  const prompt = `${SYSTEM}\n\nFACTORY_DATA:\n${context}\n\nRECENT_CHAT:\n${hist || "(none)"}\n\nUser: ${userText}\n\nReturn JSON only.`;
 
   try {
     const res = await fetch(url, {
@@ -365,13 +380,48 @@ Return JSON only.`;
       return { ok: false, error: `Gemini HTTP ${res.status}: ${body.slice(0, 80)}` };
     }
     const data = await res.json();
-    const raw =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
     if (!raw) return { ok: false, error: "Gemini empty reply" };
     return { ok: true, raw };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return { ok: false, error: `Network: ${msg}` };
+  }
+}
+
+export async function readSlipWithGemini(
+  apiKey: string,
+  dataUrl: string
+): Promise<string> {
+  if (!apiKey) return "OCR ke liye Gemini key chahiye (More → AI Providers).";
+  const match = dataUrl.match(/^data:(.+);base64,(.+)$/);
+  if (!match) return "Slip image read nahi ho saki.";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                text: "Read this mill slip. Return short Roman Urdu/English: worker name if visible, pieces, machine, date. Do not invent missing fields.",
+              },
+              { inline_data: { mime_type: match[1], data: match[2] } },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 256 },
+      }),
+    });
+    if (!res.ok) return `Slip OCR fail (HTTP ${res.status}). Photo local save ho chuki hai.`;
+    const data = await res.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    return raw || "Slip OCR empty. Photo local save hai.";
+  } catch {
+    return "Slip OCR network fail. Photo local save hai.";
   }
 }
 
@@ -384,9 +434,7 @@ function parseAgentJson(raw: string): ResolvedVoice | null {
     if (p.type === "action" && p.action && typeof p.action === "object") {
       const action = p.action as VoiceAction;
       const reply =
-        typeof p.reply === "string"
-          ? p.reply
-          : "Yeh change karun? Confirm karo.";
+        typeof p.reply === "string" ? p.reply : "Yeh change karun? Confirm karo.";
       return { kind: "action", action, reply };
     }
     if (p.type === "chat" && typeof p.reply === "string") {
@@ -394,9 +442,7 @@ function parseAgentJson(raw: string): ResolvedVoice | null {
     }
     if (
       typeof p.type === "string" &&
-      ["attendance", "production", "cash", "add_worker", "session", "query"].includes(
-        p.type
-      )
+      ["attendance", "production", "cash", "add_worker", "session", "query"].includes(p.type)
     ) {
       return {
         kind: "action",
@@ -415,7 +461,8 @@ export async function resolveVoiceCommand(
   text: string,
   geminiKey: string,
   snap: FactorySnapshot,
-  history: { role: string; text: string }[] = []
+  history: { role: string; text: string }[] = [],
+  agentModel: AppSettings["agentModel"] = "offline"
 ): Promise<ResolvedVoice> {
   const local = parseLocalVoice(text);
   if (local) {
@@ -426,10 +473,8 @@ export async function resolveVoiceCommand(
     };
   }
 
-  const model = snap.settings.agentModel ?? "offline";
-  const useGemini = model === "gemini" && !!geminiKey;
-
-  if (useGemini) {
+  const useCloud = agentModel === "gemini" && !!geminiKey;
+  if (useCloud) {
     const ctx = buildFactoryContext(snap);
     const gem = await callGemini(geminiKey, text, ctx, history);
     if (gem.ok) {
@@ -438,25 +483,30 @@ export async function resolveVoiceCommand(
     } else {
       const offline = answerFromStore(text, snap);
       if (offline) {
-        return {
-          kind: "chat",
-          reply: `${offline} (Gemini: ${gem.error})`,
-        };
+        return { kind: "chat", reply: `${offline} (Gemini: ${gem.error})` };
       }
       return { kind: "error", reply: gem.error };
     }
   }
 
   const offline = answerFromStore(text, snap);
-  if (offline) return { kind: "chat", reply: offline };
+  if (offline) {
+    const note = agentModel === "needle" ? " (Needle stub — offline RAG)" : "";
+    return { kind: "chat", reply: `${offline}${note}` };
+  }
+
+  if (agentModel === "needle") {
+    return {
+      kind: "chat",
+      reply: "Needle 2 abhi on-device nahi. Offline RAG se match nahi mila. Settings se status stub dekho.",
+    };
+  }
 
   return {
     kind: "chat",
-    reply: useGemini
-      ? "Thora clear bolo — workers, attendance, production, ya koi command?"
-      : model === "needle"
-        ? "Needle local RAG: workers / outside hisab / advances / sessions poocho. Ya command: Imran hazir."
-        : "Offline RAG: workers, outside/permanent hisab, production, cash. Key chahiye to Gemini Settings se. Command: Imran hazir / machine 3 par 2500 piece",
+    reply: useCloud
+      ? "Thora clear bolo — workers, attendance, production, hisab, ya koi command?"
+      : "Offline RAG. Permanent/outside, hisab, sessions, ya command: Imran hazir / machine 3 par 2500 piece. Gemini: More → Agent model.",
   };
 }
 
@@ -492,8 +542,7 @@ export async function requestMicPermission(): Promise<{
     if (/NotAllowed|Permission|denied/i.test(msg)) {
       return {
         ok: false,
-        error:
-          "Mic permission block — Settings → Apps → TowelWorks → Microphone ON",
+        error: "Mic permission block — Settings → Apps → TowelWorks → Microphone ON",
       };
     }
     if (/NotFound|DevicesNotFound/i.test(msg)) {

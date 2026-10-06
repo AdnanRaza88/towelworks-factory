@@ -1,8 +1,8 @@
 # Code Connection Map
 
-Last updated: 2026-09-30 03:00 PKT
+Last updated: 2026-10-06 13:21 PKT
 
-Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 UI hybrid tokens)
+Repo: AdnanRaza88/towelworks-factory (main — agent slice restored over PLACEHOLDER)
 
 ## 1. Entry Points
 
@@ -19,6 +19,10 @@ Repo: AdnanRaza88/towelworks-factory (main @ Phase 2 UI hybrid tokens)
 | src/pages/PinScreen.tsx | PIN gate | default | store | App when unlocked=false |
 | src/lib/factory/excel.ts | Excel-compatible CSV workbook | csvEscape, toCsv, buildWorkbook, payrollSheet | types, payroll | backupVoiceSlice, PayrollPage, excel.test |
 | src/store/useAppStore.ts | persist composer | useAppStore, VoiceAction | types, seed, slices | all pages, App |
+| src/lib/voiceAgent.ts | offline RAG + Gemini | answerFromStore, resolveVoiceCommand, readSlipWithGemini, speak | cashRules, calc, types | AgentPage |
+| src/pages/AgentPage.tsx | agent chat + slip attach | default | voiceAgent, useAppStore.addSlip | App tab agent |
+| src/pages/SettingsPage.tsx | agentModel + Needle stub | default | setAgentModel, setNeedleStatus | App |
+| src/pages/MachineBoardPage.tsx | 1 tailor + 1 helper label | default | openSession, machineBoard | App floor |
 | package.json | version 1.3.0 | — | — | matches APP_VERSION 1.3.0 |
 
 ## 3. Import / Call Graph
@@ -49,6 +53,7 @@ Canonical: `useAppStore.addProduction(workerId, machineId, role, rawPieces, date
 
 ## 6. Recent Changes Log
 
+- 2026-10-06 13:21 PKT — Restored voiceAgent + AgentPage after PLACEHOLDER; hisab/permanent/outside/sessions RAG; slip attach + Gemini OCR; TTS on. Settings Needle UI and floor pair label already on main.
 - 2026-09-30 03:00 PKT — Phase 2 UI hybrid tokens: Skeuo controls, Neo cards, Glass header/nav.
 - 2026-09-30 02:05 PKT — Phase 2 Excel: excel.ts workbook + exportWorkerSheet + Payroll Excel; excel.test in npm test.
 - 2026-09-30 00:10 PKT — Phase 2 search: search.ts + SearchPage + App Find; search.test in npm test.

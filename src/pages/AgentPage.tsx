@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Mic, Send, Square, ImagePlus } from "lucide-react";
+import { ImagePlus, Mic, Send, Square } from "lucide-react";
 import { useAppStore, type VoiceAction } from "@/store/useAppStore";
 import {
   resolveVoiceCommand,
   speak,
   requestMicPermission,
   getSpeechRecognition,
+  readSlipWithGemini,
   type FactorySnapshot,
 } from "@/lib/voiceAgent";
 
@@ -35,22 +36,33 @@ function describeAction(a: VoiceAction): string {
   }
 }
 
+function readFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("read fail"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AgentPage() {
-  const geminiKey = useAppStore((s) => s.settings.geminiApiKey);
-  const applyVoiceAction = useAppStore((s) => s.applyVoiceAction);
   const settings = useAppStore((s) => s.settings);
+  const geminiKey = settings.geminiApiKey;
+  const agentModel = settings.agentModel ?? "offline";
+  const needleStatus = settings.needleStatus ?? "none";
+  const applyVoiceAction = useAppStore((s) => s.applyVoiceAction);
+  const addSlip = useAppStore((s) => s.addSlip);
   const workers = useAppStore((s) => s.workers);
   const attendance = useAppStore((s) => s.attendance);
   const production = useAppStore((s) => s.production);
   const cash = useAppStore((s) => s.cash);
   const sessions = useAppStore((s) => s.sessions);
-  const addSlip = useAppStore((s) => s.addSlip);
 
   const [messages, setMessages] = useState<Msg[]>([
     {
       id: "welcome",
       role: "system",
-      text: "Agent ready · chat + voice + slip photo. Outside/permanent hisab poocho.",
+      text: "Agent ready. Permanent/outside, hisab, sessions, ya slip photo.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -100,7 +112,8 @@ export default function AgentPage() {
         trimmed,
         geminiKey,
         snap,
-        history
+        history,
+        agentModel
       );
 
       if (resolved.kind === "action") {
@@ -142,55 +155,24 @@ export default function AgentPage() {
     );
   };
 
-  const onPickImage = async (file: File | null) => {
+  const onSlip = async (file: File | undefined) => {
     if (!file) return;
     setBusy(true);
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(String(r.result || ""));
-        r.onerror = () => reject(new Error("read fail"));
-        r.readAsDataURL(file);
-      });
-      const id = addSlip(`slip ${file.name}`, dataUrl);
-      let note = `Slip save ho gaya (${id.slice(0, 6)}). Numbers type karo ya Gemini key se OCR.`;
-      if (geminiKey && dataUrl.startsWith("data:image")) {
-        try {
-          const b64 = dataUrl.split(",")[1] || "";
-          const mime = dataUrl.slice(5, dataUrl.indexOf(";")) || "image/jpeg";
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
-          const res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: "Towel mill slip photo. Extract: worker names, pieces, Rs amounts, machine numbers. Short Roman Urdu/English list only.",
-                    },
-                    { inline_data: { mime_type: mime, data: b64 } },
-                  ],
-                },
-              ],
-              generationConfig: { temperature: 0.2, maxOutputTokens: 256 },
-            }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const raw =
-              data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-            if (raw) note = `Slip OCR:\n${raw}`;
-          }
-        } catch {
-          /* keep basic note */
-        }
+      const dataUrl = await readFile(file);
+      addSlip(file.name || "slip", dataUrl);
+      push({ role: "user", text: `Slip attached: ${file.name || "photo"}` });
+      if (agentModel === "gemini" && geminiKey) {
+        const ocr = await readSlipWithGemini(geminiKey, dataUrl);
+        push({ role: "agent", text: ocr });
+        speak(ocr);
+      } else {
+        const note = "Slip local save. OCR ke liye Settings → Agent model Gemini + API key.";
+        push({ role: "system", text: note });
+        speak(note);
       }
-      push({ role: "agent", text: note });
-      speak("Slip save ho gaya");
     } catch {
-      push({ role: "system", text: "Image read fail — dobara try" });
+      push({ role: "system", text: "Slip read fail." });
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -212,7 +194,7 @@ export default function AgentPage() {
       setMicStatus("STT nahi — type karo");
       push({
         role: "system",
-        text: "Speech-to-text WebView mein available nahi. Type karke bhejo.",
+        text: "Speech-to-text is WebView mein available nahi. Type karke bhejo — agent same jawab dega.",
       });
       return;
     }
@@ -237,8 +219,7 @@ export default function AgentPage() {
       const err = (ev as SpeechRecognitionErrorEvent).error;
       let tip = `Mic: ${err}`;
       if (err === "not-allowed") {
-        tip =
-          "Permission block. Phone Settings → Apps → TowelWorks → Microphone → Allow";
+        tip = "Permission block. Phone Settings → Apps → TowelWorks → Microphone → Allow";
       } else if (err === "no-speech") {
         tip = "Kuch suna nahi — type karo";
       } else if (err === "network") {
@@ -271,14 +252,21 @@ export default function AgentPage() {
     setMicStatus("");
   };
 
+  const modelLabel =
+    agentModel === "gemini"
+      ? geminiKey
+        ? "Gemini"
+        : "Gemini (no key)"
+      : agentModel === "needle"
+        ? `Needle ${needleStatus}`
+        : "Offline RAG";
+
   return (
     <div className="flex h-full flex-col gap-2">
       <div>
         <h2 className="text-base font-bold">Agent session</h2>
         <p className="text-[10px] font-bold" style={{ color: "var(--muted)" }}>
-          {geminiKey
-            ? `Gemini ON · ${workers.filter((w) => w.active).length} workers`
-            : "Offline RAG · chat + voice + slip"}
+          {modelLabel} · {workers.filter((w) => w.active).length} workers
         </p>
       </div>
 
@@ -312,13 +300,13 @@ export default function AgentPage() {
               <div className="mt-2 flex gap-2">
                 <button
                   onClick={() => confirmAction(m.id, m.pendingAction!)}
-                  className="btn-primary flex-1 rounded-lg py-1.5 text-[10px] font-bold"
+                  className="skeuo-btn flex-1 rounded-lg py-1.5 text-[10px] font-bold"
                 >
                   Haan, karo
                 </button>
                 <button
                   onClick={() => cancelAction(m.id)}
-                  className="btn-solid flex-1 rounded-lg py-1.5 text-[10px] font-bold"
+                  className="skeuo-btn flex-1 rounded-lg py-1.5 text-[10px] font-bold"
                 >
                   Nahi
                 </button>
@@ -343,11 +331,10 @@ export default function AgentPage() {
         <button
           onClick={listening ? stopListen : startListen}
           disabled={busy}
-          className="rounded-full p-3 border font-bold"
+          className="skeuo-btn rounded-full p-3 font-bold"
           style={{
-            background: listening ? "var(--danger)" : "var(--card)",
-            color: listening ? "#fff" : "var(--text)",
-            borderColor: "var(--border-strong)",
+            background: listening ? "var(--danger)" : undefined,
+            color: listening ? "#fff" : undefined,
           }}
           aria-label="Mic"
         >
@@ -355,15 +342,10 @@ export default function AgentPage() {
         </button>
         <button
           type="button"
-          disabled={busy}
           onClick={() => fileRef.current?.click()}
-          className="rounded-full p-3 border font-bold"
-          style={{
-            background: "var(--card)",
-            color: "var(--text)",
-            borderColor: "var(--border-strong)",
-          }}
-          aria-label="Slip photo"
+          disabled={busy}
+          className="skeuo-btn rounded-full p-3"
+          aria-label="Attach slip"
         >
           <ImagePlus size={18} />
         </button>
@@ -373,7 +355,7 @@ export default function AgentPage() {
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={(e) => void onPickImage(e.target.files?.[0] ?? null)}
+          onChange={(e) => void onSlip(e.target.files?.[0])}
         />
         <input
           value={input}
@@ -381,19 +363,22 @@ export default function AgentPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter") void handleUserText(input);
           }}
-          placeholder="Sawal ya command..."
+          placeholder="Sawal, hisab, ya command..."
           className="flex-1 rounded-xl px-3 py-2.5 text-sm font-bold"
           disabled={busy}
         />
         <button
           onClick={() => void handleUserText(input)}
           disabled={busy || !input.trim()}
-          className="btn-primary rounded-full p-3"
+          className="skeuo-btn rounded-full p-3"
           aria-label="Send"
         >
           <Send size={18} />
         </button>
       </div>
+      <p className="text-center text-[10px] font-bold" style={{ color: "var(--muted)" }}>
+        {modelLabel} · TTS on · Needle binary deferred
+      </p>
     </div>
   );
 }
